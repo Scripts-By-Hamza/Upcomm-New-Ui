@@ -56,6 +56,7 @@ export function DepartmentTasksTab({
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState({
+    status: true,
     assignee: true,
     assist: true,
     priority: true,
@@ -98,9 +99,13 @@ export function DepartmentTasksTab({
       if (selectedPriority !== 'all' && t.priority !== selectedPriority) return false;
 
       // Assignee
-      if (selectedAssignedTo !== 'all') {
-        const assigneeIds = getTaskAssigneeIds(t);
-        if (!assigneeIds.includes(selectedAssignedTo)) return false;
+      if (selectedAssignedTo !== 'all' && selectedAssignedTo) {
+        const selectedIds = selectedAssignedTo.split(',').filter(Boolean);
+        if (selectedIds.length > 0) {
+          const assigneeIds = getTaskAssigneeIds(t);
+          const match = selectedIds.some((uid) => t.assigned_to === uid || assigneeIds.includes(uid));
+          if (!match) return false;
+        }
       }
 
       // Assigned By
@@ -285,7 +290,7 @@ export function DepartmentTasksTab({
           selectedPriority={selectedPriority}
           onClearPriority={() => setSelectedPriority('all')}
           selectedAssignedTo={selectedAssignedTo}
-          onClearAssignedTo={() => setSelectedAssignedTo('all')}
+          onClearAssignedTo={(val) => setSelectedAssignedTo(typeof val === 'string' ? val : 'all')}
           selectedAssignedBy={selectedAssignedBy}
           onClearAssignedBy={() => setSelectedAssignedBy('all')}
           selectedDue={selectedDue}

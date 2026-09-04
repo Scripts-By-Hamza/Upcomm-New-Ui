@@ -23,6 +23,13 @@ import { RequestDeleteModal } from '../../components/tasks/RequestDeleteModal';
 import { TaskDetailDrawer } from '../../components/tasks/detail/TaskDetailDrawer';
 import { EditTaskDrawer } from '../../components/tasks/edit/EditTaskDrawer';
 
+import {
+  getLockedFiltersForPage,
+  saveLockedFiltersForPage,
+  removeLockedFiltersForPage,
+  DEFAULT_TASK_FILTERS,
+} from '../../utils/taskFilterStorage';
+
 export function TaskListPage({ filterType: propFilterType }) {
   const {
     tasks = [],
@@ -54,11 +61,12 @@ export function TaskListPage({ filterType: propFilterType }) {
   const [visibleColumns, setVisibleColumns] = useState(() => {
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) return { status: true, ...JSON.parse(saved) };
     } catch {
       // fallback
     }
     return {
+      status: true,
       assignee: true,
       assist: true,
       priority: true,
@@ -92,25 +100,86 @@ export function TaskListPage({ filterType: propFilterType }) {
     return 'all';
   }, [propFilterType, location.pathname]);
 
-  // Read URL search params
-  const search = searchParams.get('search') || '';
   const activeScope = searchParams.get('scope');
   const isMyTasks = activeScope === 'my' || activeRouteType === 'assigned_to_admin';
+
+  // Stable semantic page key for user-isolated persistent storage
+  const pageKey = useMemo(() => {
+    if (isMyTasks) return 'my_tasks';
+    return activeRouteType || 'all';
+  }, [isMyTasks, activeRouteType]);
+
+  // Local state to trigger lock state changes instantly
+  const [lockToggleVersion, setLockToggleVersion] = useState(0);
+
+  // Read locked filters from storage for the current user and page
+  const lockedConfig = useMemo(() => {
+    return getLockedFiltersForPage({
+      userId: currentUserId,
+      pageKey,
+      departments,
+      users,
+      currentUser,
+    });
+  }, [currentUserId, pageKey, departments, users, currentUser, lockToggleVersion]);
+
+  const isFiltersLocked = Boolean(lockedConfig.isLocked);
+  const lockedFilters = lockedConfig.filters || {};
+
+  // Read active filters (synchronously prioritizing explicit URL query params, falling back to locked filters if locked)
+  const search = searchParams.has('search')
+    ? searchParams.get('search')
+    : (isFiltersLocked ? (lockedFilters.search || '') : '');
+
   const showCompleted = searchParams.get('show_completed') === 'true';
 
-  const selectedDept = searchParams.get('department') || 'all';
-  const selectedStatus = searchParams.get('status') || 'all';
-  const selectedPriority = searchParams.get('priority') || 'all';
-  const selectedAssignedBy = searchParams.get('assigned_by') || 'all';
-  const selectedAssignedTo = searchParams.get('assigned_to') || 'all';
-  const selectedDue = searchParams.get('due') || 'all';
-  const unreadFilter = searchParams.get('unread') === 'true';
-  const hideCompleted = searchParams.get('hide_completed') === 'true';
-  const selectedGroup = searchParams.get('group') || 'none';
-  const selectedSort = searchParams.get('sort') || 'default';
+  const selectedDept = searchParams.has('department')
+    ? searchParams.get('department')
+    : (isFiltersLocked ? (lockedFilters.department || 'all') : 'all');
+
+  const selectedStatus = searchParams.has('status')
+    ? searchParams.get('status')
+    : (isFiltersLocked ? (lockedFilters.status || 'all') : 'all');
+
+  const selectedPriority = searchParams.has('priority')
+    ? searchParams.get('priority')
+    : (isFiltersLocked ? (lockedFilters.priority || 'all') : 'all');
+
+  const selectedAssignedBy = searchParams.has('assigned_by')
+    ? searchParams.get('assigned_by')
+    : (isFiltersLocked ? (lockedFilters.assigned_by || 'all') : 'all');
+
+  const selectedAssignedTo = searchParams.has('assigned_to')
+    ? searchParams.get('assigned_to')
+    : (isFiltersLocked ? (lockedFilters.assigned_to || 'all') : 'all');
+
+  const selectedDue = searchParams.has('due')
+    ? searchParams.get('due')
+    : (isFiltersLocked ? (lockedFilters.due || 'all') : 'all');
+
+  const unreadFilter = searchParams.has('unread')
+    ? searchParams.get('unread') === 'true'
+    : (isFiltersLocked ? Boolean(lockedFilters.unread) : false);
+
+  const hideCompleted = searchParams.has('hide_completed')
+    ? searchParams.get('hide_completed') === 'true'
+    : (isFiltersLocked ? Boolean(lockedFilters.hide_completed) : false);
+
+  const selectedGroup = searchParams.has('group')
+    ? searchParams.get('group')
+    : (isFiltersLocked ? (lockedFilters.group || 'none') : 'none');
+
+  const selectedSort = searchParams.has('sort')
+    ? searchParams.get('sort')
+    : (isFiltersLocked ? (lockedFilters.sort || 'default') : 'default');
+
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
   const activeView = searchParams.get('view') || 'list';
-  const completedSubFilter = searchParams.get('completed_filter') || 'all';
+
+  const completedSubFilter = searchParams.has('completed_filter')
+    ? searchParams.get('completed_filter')
+    : (isFiltersLocked ? (lockedFilters.completed_filter || 'all') : 'all');
+
   const selectedTaskId = searchParams.get('task');
   const editTaskId = searchParams.get('edit');
   const [editOriginIsDetail, setEditOriginIsDetail] = useState(false);
@@ -164,6 +233,31 @@ export function TaskListPage({ filterType: propFilterType }) {
       },
       { replace: true }
     );
+
+    // If page is locked, auto-save the updated filter value immediately
+    if (isFiltersLocked && currentUserId) {
+      const currentFilters = {
+        search: key === 'search' ? value : search,
+        department: key === 'department' ? value : selectedDept,
+        status: key === 'status' ? value : selectedStatus,
+        priority: key === 'priority' ? value : selectedPriority,
+        assigned_to: key === 'assigned_to' ? value : selectedAssignedTo,
+        assigned_by: key === 'assigned_by' ? value : selectedAssignedBy,
+        due: key === 'due' ? value : selectedDue,
+        unread: key === 'unread' ? Boolean(value) : unreadFilter,
+        hide_completed: key === 'hide_completed' ? Boolean(value) : hideCompleted,
+        group: key === 'group' ? value : selectedGroup,
+        sort: key === 'sort' ? value : selectedSort,
+        completed_filter: key === 'completed_filter' ? value : completedSubFilter,
+      };
+
+      saveLockedFiltersForPage({
+        userId: currentUserId,
+        pageKey,
+        filters: currentFilters,
+      });
+      setLockToggleVersion((v) => v + 1);
+    }
   };
 
   const setSearch = (val) => updateQueryParam('search', val);
@@ -194,6 +288,63 @@ export function TaskListPage({ filterType: propFilterType }) {
     );
   };
   const setCompletedSubFilter = (val) => updateQueryParam('completed_filter', val);
+
+  const handleToggleLockFilters = () => {
+    if (isFiltersLocked) {
+      // UNLOCK: Remove saved configuration from storage, but keep currently visible filters active in current session
+      removeLockedFiltersForPage({
+        userId: currentUserId,
+        pageKey,
+      });
+
+      // Keep current active filters in URL query params so they stay visible in current session
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (search) next.set('search', search);
+          if (selectedDept !== 'all') next.set('department', selectedDept);
+          if (selectedStatus !== 'all') next.set('status', selectedStatus);
+          if (selectedPriority !== 'all') next.set('priority', selectedPriority);
+          if (selectedAssignedTo !== 'all') next.set('assigned_to', selectedAssignedTo);
+          if (selectedAssignedBy !== 'all') next.set('assigned_by', selectedAssignedBy);
+          if (selectedDue !== 'all') next.set('due', selectedDue);
+          if (unreadFilter) next.set('unread', 'true');
+          if (hideCompleted) next.set('hide_completed', 'true');
+          if (selectedGroup !== 'none') next.set('group', selectedGroup);
+          if (selectedSort !== 'default') next.set('sort', selectedSort);
+          if (completedSubFilter !== 'all') next.set('completed_filter', completedSubFilter);
+          return next;
+        },
+        { replace: true }
+      );
+
+      setLockToggleVersion((v) => v + 1);
+    } else {
+      // LOCK: Persist current filters under this specific page & authenticated user
+      const filtersToSave = {
+        search,
+        department: selectedDept,
+        status: selectedStatus,
+        priority: selectedPriority,
+        assigned_to: selectedAssignedTo,
+        assigned_by: selectedAssignedBy,
+        due: selectedDue,
+        unread: unreadFilter,
+        hide_completed: hideCompleted,
+        group: selectedGroup,
+        sort: selectedSort,
+        completed_filter: completedSubFilter,
+      };
+
+      saveLockedFiltersForPage({
+        userId: currentUserId,
+        pageKey,
+        filters: filtersToSave,
+      });
+
+      setLockToggleVersion((v) => v + 1);
+    }
+  };
 
   // Calendar month state synced with URL ?month=YYYY-MM
   const monthParam = searchParams.get('month');
@@ -251,6 +402,18 @@ export function TaskListPage({ filterType: propFilterType }) {
       },
       { replace: true }
     );
+
+    // If currently locked, updating filters to cleared state also updates the saved lock config
+    if (isFiltersLocked && currentUserId) {
+      saveLockedFiltersForPage({
+        userId: currentUserId,
+        pageKey,
+        filters: {
+          ...DEFAULT_TASK_FILTERS,
+          completed_filter: completedSubFilter,
+        },
+      });
+    }
   };
 
   // Helper to check user participation
@@ -331,9 +494,13 @@ export function TaskListPage({ filterType: propFilterType }) {
         if (!matchesText) return false;
       }
 
-      // Department filter
-      if (selectedDept !== 'all') {
-        if (!isTaskInDepartment(task, selectedDept, users)) return false;
+      // Department filter (multi-select supported)
+      if (selectedDept !== 'all' && selectedDept) {
+        const deptIds = selectedDept.split(',').filter(Boolean);
+        if (deptIds.length > 0) {
+          const matchDept = deptIds.some((deptId) => isTaskInDepartment(task, deptId, users));
+          if (!matchDept) return false;
+        }
       }
 
       // Status filter
@@ -355,11 +522,15 @@ export function TaskListPage({ filterType: propFilterType }) {
         if (!createdMatch && !assignedMatch) return false;
       }
 
-      // Assigned To filter (All Tasks only)
-      if (!isMyTasks && selectedAssignedTo !== 'all') {
-        const assignees = getTaskAssigneeIds(task);
-        if (task.assigned_to !== selectedAssignedTo && !assignees.includes(selectedAssignedTo)) {
-          return false;
+      // Assigned To filter (All Tasks only, multi-select supported)
+      if (!isMyTasks && selectedAssignedTo !== 'all' && selectedAssignedTo) {
+        const assigneeIds = selectedAssignedTo.split(',').filter(Boolean);
+        if (assigneeIds.length > 0) {
+          const taskAssignees = getTaskAssigneeIds(task);
+          const matchAssignee = assigneeIds.some(
+            (uid) => task.assigned_to === uid || taskAssignees.includes(uid)
+          );
+          if (!matchAssignee) return false;
         }
       }
 
@@ -617,10 +788,10 @@ export function TaskListPage({ filterType: propFilterType }) {
         unreadCount={unreadCount}
         selectedGroup={selectedGroup}
         onGroupChange={setSelectedGroup}
-        selectedSort={selectedSort}
-        onSortChange={setSelectedSort}
         visibleColumns={visibleColumns}
         onToggleColumn={handleToggleColumn}
+        isFiltersLocked={isFiltersLocked}
+        onToggleLockFilters={handleToggleLockFilters}
         activeView={activeView}
         isMyTasks={isMyTasks}
         currentMonth={currentMonth}
@@ -640,11 +811,11 @@ export function TaskListPage({ filterType: propFilterType }) {
         selectedStatus={selectedStatus}
         onClearStatus={() => setSelectedStatus('all')}
         selectedDept={selectedDept}
-        onClearDept={() => setSelectedDept('all')}
+        onClearDept={(val) => setSelectedDept(typeof val === 'string' ? val : 'all')}
         selectedPriority={selectedPriority}
         onClearPriority={() => setSelectedPriority('all')}
         selectedAssignedTo={selectedAssignedTo}
-        onClearAssignedTo={() => setSelectedAssignedTo('all')}
+        onClearAssignedTo={(val) => setSelectedAssignedTo(typeof val === 'string' ? val : 'all')}
         selectedAssignedBy={selectedAssignedBy}
         onClearAssignedBy={() => setSelectedAssignedBy('all')}
         selectedDue={selectedDue}

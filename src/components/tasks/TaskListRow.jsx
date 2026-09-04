@@ -11,6 +11,7 @@ import {
   Edit2,
   Trash2,
   Eye,
+  Clock,
 } from 'lucide-react';
 import {
   getTaskAssigneeIds,
@@ -28,7 +29,9 @@ export function TaskListRow({
   departments = [],
   completionRequests = [],
   readChatIds = [],
+  onUpdateStatus,
   onUpdatePriority,
+  onRequestCompletion,
   onRequestDelete,
   onDirectDelete,
   visibleColumns = {},
@@ -36,18 +39,22 @@ export function TaskListRow({
   onEditTask,
 }) {
   const navigate = useNavigate();
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuOpenUpward, setMenuOpenUpward] = useState(false);
+  const [statusOpenUpward, setStatusOpenUpward] = useState(false);
   const [priorityOpenUpward, setPriorityOpenUpward] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const statusRef = useRef(null);
   const priorityRef = useRef(null);
   const menuRef = useRef(null);
 
   // Close menus on outside click
   useEffect(() => {
     function handleClickOutside(e) {
+      if (statusRef.current && !statusRef.current.contains(e.target)) setIsStatusOpen(false);
       if (priorityRef.current && !priorityRef.current.contains(e.target)) setIsPriorityOpen(false);
       if (menuRef.current && !menuRef.current.contains(e.target)) setIsMenuOpen(false);
     }
@@ -125,6 +132,13 @@ export function TaskListRow({
     return !isSeenInUpdate && !isReadInChat;
   });
 
+  // Pending Completion Request Check
+  const pendingCompletionRequest = (completionRequests || []).find(
+    (r) => r.task_id === task.id && r.status === 'pending'
+  );
+  const hasMyPendingRequest =
+    pendingCompletionRequest?.requested_by === currentUser?.id;
+
   const getPriorityInfo = (priority) => {
     switch (priority?.toLowerCase()) {
       case 'urgent':
@@ -141,7 +155,31 @@ export function TaskListRow({
 
   const priorityInfo = getPriorityInfo(task.priority);
 
+  const getStatusInfo = (status) => {
+    switch (status) {
+      case 'in_progress':
+        return { label: 'In Progress', dot: 'bg-[#2563EB]', color: 'text-[#2563EB]' };
+      case 'completed':
+        return { label: 'Completed', dot: 'bg-[#16A34A]', color: 'text-[#16A34A]' };
+      case 'pending':
+      default:
+        return { label: 'Pending', dot: 'bg-[#71717A]', color: 'text-[#71717A]' };
+    }
+  };
+
+  const statusInfo = getStatusInfo(task.status);
+
   // Handlers with smart upward flip detection
+  const handleToggleStatus = (e) => {
+    e.stopPropagation();
+    if (!isStatusOpen && statusRef.current) {
+      const rect = statusRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setStatusOpenUpward(spaceBelow < 180 || isLastRow);
+    }
+    setIsStatusOpen((prev) => !prev);
+  };
+
   const handleTogglePriority = (e) => {
     e.stopPropagation();
     if (!isPriorityOpen && priorityRef.current) {
@@ -197,6 +235,79 @@ export function TaskListRow({
           </span>
         </div>
       </td>
+
+      {/* 2. Status Column */}
+      {visibleColumns.status !== false && (
+        <td
+          className="py-2 pr-3 min-w-[125px] whitespace-nowrap"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {hasMyPendingRequest ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[11px] font-semibold bg-amber-50 text-[#D97706] border border-amber-200">
+              <Clock className="w-3 h-3" />
+              <span>Requested</span>
+            </span>
+          ) : permissions.canUpdateGlobalTaskStatus ? (
+            <div className="relative inline-block" ref={statusRef}>
+              <button
+                type="button"
+                onClick={handleToggleStatus}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-[6px] hover:bg-[#F5F6F8] transition-colors cursor-pointer outline-none focus:outline-none"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+                <span className={`text-[12px] font-medium ${statusInfo.color}`}>
+                  {statusInfo.label}
+                </span>
+                <ChevronDown className="w-3 h-3 text-[#8B8B95]" />
+              </button>
+
+              {isStatusOpen && (
+                <div
+                  className={`absolute left-0 ${
+                    statusOpenUpward ? 'bottom-full mb-1.5' : 'top-full mt-1'
+                  } w-36 bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in space-y-0.5`}
+                >
+                  {['pending', 'in_progress', 'completed'].map((st) => {
+                    const sInfo = getStatusInfo(st);
+                    const isMustRequest = st === 'completed' && permissions.mustRequestCompletion;
+
+                    return (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => {
+                          setIsStatusOpen(false);
+                          if (isMustRequest) {
+                            onRequestCompletion?.(task.id);
+                          } else {
+                            onUpdateStatus?.(task.id, st);
+                          }
+                        }}
+                        className="w-full flex items-center justify-between px-2 py-1 rounded-[5px] text-[11.5px] hover:bg-[#F5F6F8] text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${sInfo.dot}`} />
+                          <span className={sInfo.color}>
+                            {isMustRequest ? 'Request Complete' : sInfo.label}
+                          </span>
+                        </div>
+                        {task.status === st && <Check className="w-3 h-3 text-[#059669]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 pl-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+              <span className={`text-[12px] font-medium ${statusInfo.color}`}>
+                {statusInfo.label}
+              </span>
+            </div>
+          )}
+        </td>
+      )}
 
       {/* 2. Assignee Column - Avatars Only */}
       {visibleColumns.assignee !== false && (

@@ -98,7 +98,7 @@ export function TaskListTable({
         <React.Fragment key={groupTitle}>
           {/* Group Header Row */}
           <tr className="bg-[#F8F9FA] border-y border-[#E5E7EB]">
-            <td colSpan={7} className="py-2 px-4">
+            <td colSpan={10} className="py-2 px-4">
               <div className="flex items-center gap-2">
                 <span className="text-[12px] font-bold text-[#18181B]">
                   {groupTitle}
@@ -144,6 +144,9 @@ export function TaskListTable({
             <tr className="h-10 bg-white border-b border-[#E5E7EB] text-[12px] text-[#71717A] font-medium">
               {/* Columns */}
               <th className="pl-4 py-2 pr-3 font-medium min-w-[220px]">Task</th>
+              {visibleColumns.status !== false && (
+                <th className="py-2 pr-3 font-medium min-w-[125px]">Status</th>
+              )}
               {visibleColumns.assignee !== false && (
                 <th className="py-2 pr-3 font-medium w-20">Assignee</th>
               )}

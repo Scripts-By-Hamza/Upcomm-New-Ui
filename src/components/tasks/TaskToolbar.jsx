@@ -7,15 +7,15 @@ import {
   ChevronRight,
   UserRound,
   Building2,
-  Flag,
   CalendarDays,
   Layers3,
-  ArrowUpDown,
   SlidersHorizontal,
   Check,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { TaskFilterPopover } from './TaskFilterPopover';
+import { Avatar } from '../common/Avatar';
 import { MemberSearchFilter } from './MemberSearchFilter';
 
 export function TaskToolbar({
@@ -40,10 +40,10 @@ export function TaskToolbar({
   unreadCount = 0,
   selectedGroup = 'none',
   onGroupChange,
-  selectedSort = 'default',
-  onSortChange,
   visibleColumns = {},
   onToggleColumn,
+  isFiltersLocked = false,
+  onToggleLockFilters,
   activeView = 'list',
   isMyTasks = false,
   currentMonth = new Date(),
@@ -56,7 +56,8 @@ export function TaskToolbar({
   isStatusLocked = false,
 }) {
   // Dropdown states for each toolbar popover
-  const [openDropdown, setOpenDropdown] = useState(null); // 'dept' | 'priority' | 'due' | 'group' | 'sort' | 'customize' | 'assignee' | 'status' | 'assignedBy'
+  const [openDropdown, setOpenDropdown] = useState(null); // 'dept' | 'due' | 'group' | 'customize' | 'assignee' | 'status' | 'assignedBy'
+  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
   const toolbarRef = useRef(null);
 
   useEffect(() => {
@@ -116,6 +117,7 @@ export function TaskToolbar({
   ];
 
   const columnLabels = {
+    status: 'Status',
     assignee: 'Assignee',
     assist: 'Assist',
     priority: 'Priority',
@@ -124,11 +126,73 @@ export function TaskToolbar({
     activity: 'Activity',
   };
 
-  const selectedDeptObj = departments.find((d) => d.id === selectedDept);
-  const selectedAssigneeObj = users.find((u) => u.id === selectedAssignedTo);
+  const deptMap = React.useMemo(() => {
+    const map = {};
+    (departments || []).forEach((d) => {
+      if (d && d.id) map[d.id] = d;
+    });
+    return map;
+  }, [departments]);
+
+  const activeUsersList = React.useMemo(() => {
+    return (users || [])
+      .filter(
+        (u) =>
+          u &&
+          !u.is_system_account &&
+          !u.exclude_from_directory &&
+          u.role !== 'it_support_admin' &&
+          u.role !== 'it_support'
+      )
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  }, [users]);
+
+  const filteredAssigneeUsers = React.useMemo(() => {
+    if (!assigneeSearchQuery.trim()) return activeUsersList;
+    const q = assigneeSearchQuery.toLowerCase().trim();
+    return activeUsersList.filter((u) => {
+      const matchName = u.full_name?.toLowerCase().includes(q);
+      const matchEmail = u.email?.toLowerCase().includes(q);
+      const dept = deptMap[u.department_id];
+      const matchDept = dept?.name?.toLowerCase().includes(q);
+      const matchRole = u.role?.toLowerCase().includes(q);
+      return matchName || matchEmail || matchDept || matchRole;
+    });
+  }, [activeUsersList, assigneeSearchQuery, deptMap]);
+
+  const selectedAssigneeIds = React.useMemo(() => {
+    if (!selectedAssignedTo || selectedAssignedTo === 'all') return [];
+    return selectedAssignedTo.split(',').filter(Boolean);
+  }, [selectedAssignedTo]);
+
+  const handleToggleAssignee = (userId) => {
+    let next;
+    if (selectedAssigneeIds.includes(userId)) {
+      next = selectedAssigneeIds.filter((id) => id !== userId);
+    } else {
+      next = [...selectedAssigneeIds, userId];
+    }
+    onAssignedToChange(next.length === 0 ? 'all' : next.join(','));
+  };
+
+  const selectedDeptIds = React.useMemo(() => {
+    if (!selectedDept || selectedDept === 'all') return [];
+    return selectedDept.split(',').filter(Boolean);
+  }, [selectedDept]);
+
+  const handleToggleDept = (deptId) => {
+    let next;
+    if (selectedDeptIds.includes(deptId)) {
+      next = selectedDeptIds.filter((id) => id !== deptId);
+    } else {
+      next = [...selectedDeptIds, deptId];
+    }
+    onDeptChange(next.length === 0 ? 'all' : next.join(','));
+  };
+
   const selectedAssignedByObj = users.find((u) => u.id === selectedAssignedBy);
 
-  // Common Filter Buttons Group (Filter, Assignee, Department, Priority, Due Date)
+  // Common Filter Buttons Group (Filter, Assignee, Department, Due Date)
   const renderFilterButtons = (isCalendarMode = false) => {
     if (isMyTasks) {
       return (
@@ -191,7 +255,6 @@ export function TaskToolbar({
                   : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B]'
               }`}
             >
-              <Flag className="w-3.5 h-3.5 text-[#71717A]" />
               <span className="capitalize">
                 {selectedPriority !== 'all' ? selectedPriority : 'Priority'}
               </span>
@@ -311,30 +374,13 @@ export function TaskToolbar({
 
     return (
       <>
-        {/* Filter Button (Popover) */}
-        <TaskFilterPopover
-          selectedStatus={selectedStatus}
-          onStatusChange={onStatusChange}
-          selectedAssignedBy={selectedAssignedBy}
-          onAssignedByChange={onAssignedByChange}
-          unreadFilter={unreadFilter}
-          onUnreadFilterChange={onUnreadFilterChange}
-          hideCompleted={hideCompleted}
-          onHideCompletedChange={onHideCompletedChange}
-          unreadCount={unreadCount}
-          users={users}
-          departments={departments}
-          isAdmin={isAdmin}
-          isStatusLocked={isStatusLocked}
-        />
-
-        {/* Assignee Dropdown */}
+        {/* Assignee Dropdown (Multi-Select with Search) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => toggleDropdown('assignee')}
             className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
-              selectedAssignedTo !== 'all'
+              selectedAssigneeIds.length > 0
                 ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
                 : openDropdown === 'assignee'
                 ? 'bg-white border-[#059669] text-[#18181B]'
@@ -342,37 +388,114 @@ export function TaskToolbar({
             }`}
           >
             <UserRound className="w-3.5 h-3.5 text-[#71717A]" />
-            <span className="truncate max-w-[110px]">
-              {selectedAssigneeObj
-                ? selectedAssigneeObj.full_name?.split(' ')[0]
-                : 'Assignee'}
+            <span className="truncate max-w-[120px]">
+              {selectedAssigneeIds.length === 0
+                ? 'Assignee'
+                : selectedAssigneeIds.length === 1
+                ? users.find((u) => u.id === selectedAssigneeIds[0])?.full_name?.split(' ')[0] || '1 Assignee'
+                : `${users.find((u) => u.id === selectedAssigneeIds[0])?.full_name?.split(' ')[0] || 'User'} +${selectedAssigneeIds.length - 1}`}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
           </button>
 
           {openDropdown === 'assignee' && (
-            <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-64 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in">
-              <MemberSearchFilter
-                label="Assignee"
-                value={selectedAssignedTo}
-                onChange={(val) => {
-                  onAssignedToChange(val);
-                  setOpenDropdown(null);
-                }}
-                users={users}
-                departments={departments}
-              />
+            <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-72 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in space-y-1.5">
+              {/* Top Search Input Box */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-[#8B8B95] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={assigneeSearchQuery}
+                  onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                  placeholder="Search users by name or dept..."
+                  className="w-full pl-8 pr-7 py-1.5 text-[12px] bg-[#F8F9FA] border border-[#E5E7EB] rounded-[6px] focus:outline-none focus:border-[#059669] focus:bg-white text-[#18181B] placeholder:text-[#8B8B95]"
+                  autoFocus
+                />
+                {assigneeSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setAssigneeSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8B8B95] hover:text-[#18181B] p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* All Assignees (Reset) Button */}
+              <button
+                type="button"
+                onClick={() => onAssignedToChange('all')}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer transition-colors ${
+                  selectedAssigneeIds.length === 0
+                    ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
+                    : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
+                }`}
+              >
+                <span>All Assignees</span>
+                {selectedAssigneeIds.length === 0 && <Check className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* User List with Checkboxes */}
+              <div className="max-h-56 overflow-y-auto space-y-0.5 pt-0.5 border-t border-[#F4F4F5]">
+                {filteredAssigneeUsers.length === 0 ? (
+                  <div className="py-3 text-center text-[11.5px] text-[#8B8B95]">
+                    No users found
+                  </div>
+                ) : (
+                  filteredAssigneeUsers.map((u) => {
+                    const isChecked = selectedAssigneeIds.includes(u.id);
+                    const uDept = deptMap[u.department_id];
+                    return (
+                      <div
+                        key={u.id}
+                        onClick={() => handleToggleAssignee(u.id)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded-[6px] cursor-pointer transition-colors text-left select-none ${
+                          isChecked
+                            ? 'bg-[#ECFDF5] text-[#059669]'
+                            : 'hover:bg-[#F5F6F8] text-[#18181B]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}} // handled by parent div click
+                            className="rounded border-[#D4D4D8] text-[#059669] focus:ring-0 cursor-pointer w-3.5 h-3.5 flex-shrink-0"
+                          />
+                          <Avatar
+                            src={u.avatar_url}
+                            name={u.full_name}
+                            size="xs"
+                            className="flex-shrink-0"
+                          />
+                          <div className="min-w-0 flex-1 truncate">
+                            <span className="text-[12px] font-medium truncate block">
+                              {u.full_name}
+                            </span>
+                            {uDept && (
+                              <span className="text-[10.5px] text-[#71717A] truncate block">
+                                {uDept.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Department Dropdown */}
+        {/* Department Dropdown (Multi-Select with Checkboxes) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => toggleDropdown('dept')}
             className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
-              selectedDept !== 'all'
+              selectedDeptIds.length > 0
                 ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
                 : openDropdown === 'dept'
                 ? 'bg-white border-[#059669] text-[#18181B]'
@@ -380,91 +503,63 @@ export function TaskToolbar({
             }`}
           >
             <Building2 className="w-3.5 h-3.5 text-[#71717A]" />
-            <span className="truncate max-w-[110px]">
-              {selectedDeptObj ? selectedDeptObj.name : 'Department'}
+            <span className="truncate max-w-[120px]">
+              {selectedDeptIds.length === 0
+                ? 'Department'
+                : selectedDeptIds.length === 1
+                ? departments.find((d) => d.id === selectedDeptIds[0])?.name || '1 Dept'
+                : `${departments.find((d) => d.id === selectedDeptIds[0])?.name || 'Dept'} +${selectedDeptIds.length - 1}`}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
           </button>
 
           {openDropdown === 'dept' && (
-            <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-52 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-1.5 z-50 animate-fade-in max-h-60 overflow-y-auto space-y-0.5">
+            <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-60 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in space-y-1">
               <button
                 type="button"
-                onClick={() => {
-                  onDeptChange('all');
-                  setOpenDropdown(null);
-                }}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer ${
-                  selectedDept === 'all'
+                onClick={() => onDeptChange('all')}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer transition-colors ${
+                  selectedDeptIds.length === 0
                     ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
                     : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
                 }`}
               >
                 <span>All Departments</span>
-                {selectedDept === 'all' && <Check className="w-3.5 h-3.5" />}
+                {selectedDeptIds.length === 0 && <Check className="w-3.5 h-3.5" />}
               </button>
-              {departments.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => {
-                    onDeptChange(d.id);
-                    setOpenDropdown(null);
-                  }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer ${
-                    selectedDept === d.id
-                      ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
-                      : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
-                  }`}
-                >
-                  <span className="truncate">{d.name}</span>
-                  {selectedDept === d.id && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Priority Dropdown */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => toggleDropdown('priority')}
-            className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
-              selectedPriority !== 'all'
-                ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
-                : openDropdown === 'priority'
-                ? 'bg-white border-[#059669] text-[#18181B]'
-                : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B]'
-            }`}
-          >
-            <Flag className="w-3.5 h-3.5 text-[#71717A]" />
-            <span className="capitalize">
-              {selectedPriority !== 'all' ? selectedPriority : 'Priority'}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
-          </button>
-
-          {openDropdown === 'priority' && (
-            <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-44 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-1.5 z-50 animate-fade-in space-y-0.5">
-              {priorityOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    onPriorityChange(opt.value);
-                    setOpenDropdown(null);
-                  }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer ${
-                    selectedPriority === opt.value
-                      ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
-                      : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  {selectedPriority === opt.value && <Check className="w-3.5 h-3.5" />}
-                </button>
-              ))}
+              <div className="max-h-60 overflow-y-auto space-y-0.5 pt-1 border-t border-[#F4F4F5]">
+                {departments.map((d) => {
+                  const isChecked = selectedDeptIds.includes(d.id);
+                  return (
+                    <div
+                      key={d.id}
+                      onClick={() => handleToggleDept(d.id)}
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-[6px] cursor-pointer transition-colors text-left select-none ${
+                        isChecked
+                          ? 'bg-[#ECFDF5] text-[#059669]'
+                          : 'hover:bg-[#F5F6F8] text-[#18181B]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}} // handled by parent div click
+                          className="rounded border-[#D4D4D8] text-[#059669] focus:ring-0 cursor-pointer w-3.5 h-3.5 flex-shrink-0"
+                        />
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: d.color || '#10B981' }}
+                        />
+                        <span className="text-[12px] font-medium truncate">
+                          {d.name}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -572,6 +667,34 @@ export function TaskToolbar({
           {/* Right: Filters on Calendar View */}
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {renderFilterButtons(true)}
+            {/* Lock Filter Button (Calendar View) */}
+            {!isMyTasks && (
+              <button
+                type="button"
+                onClick={onToggleLockFilters}
+                aria-pressed={isFiltersLocked ? 'true' : 'false'}
+                aria-label={isFiltersLocked ? 'Unlock filters for this page' : 'Lock filters for this page'}
+                title={
+                  isFiltersLocked
+                    ? 'These filters are saved for this page. Click to unlock.'
+                    : 'Keep these filters when you return to this page'
+                }
+                className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs select-none ${
+                  isFiltersLocked
+                    ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold hover:bg-[#D1FAE5] dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399] dark:hover:bg-[#064E3B]/50'
+                    : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B] dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5] dark:hover:bg-[#27272A]'
+                }`}
+              >
+                <Lock
+                  className={`w-3.5 h-3.5 ${
+                    isFiltersLocked
+                      ? 'text-[#059669] dark:text-[#34D399]'
+                      : 'text-[#71717A] dark:text-[#A1A1AA]'
+                  }`}
+                />
+                <span>{isFiltersLocked ? 'Locked' : 'Lock Filter'}</span>
+              </button>
+            )}
           </div>
         </>
       ) : (
@@ -587,7 +710,7 @@ export function TaskToolbar({
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={isMyTasks ? 'Search my tasks' : 'Search tasks...'}
-                className="w-full pl-8 pr-7 h-9 bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669] rounded-[8px] text-[12.5px] text-[#18181B] placeholder:text-[#8B8B95] transition-all outline-none"
+                className="w-full pl-8 pr-7 h-9 bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669] rounded-[8px] text-[12.5px] text-[#18181B] placeholder:text-[#8B8B95] transition-all outline-none dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5] dark:placeholder:text-[#71717A]"
               />
               {search && (
                 <button
@@ -651,48 +774,6 @@ export function TaskToolbar({
               </div>
             )}
 
-            {/* Sort Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => toggleDropdown('sort')}
-                className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  selectedSort !== 'default'
-                    ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
-                    : openDropdown === 'sort'
-                    ? 'bg-white border-[#059669] text-[#18181B]'
-                    : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B]'
-                }`}
-              >
-                <ArrowUpDown className="w-3.5 h-3.5 text-[#71717A]" />
-                <span>Sort</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
-              </button>
-
-              {openDropdown === 'sort' && (
-                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-1.5 z-50 animate-fade-in space-y-0.5">
-                  {sortOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        onSortChange(opt.value);
-                        setOpenDropdown(null);
-                      }}
-                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer ${
-                        selectedSort === opt.value
-                          ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
-                          : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
-                      }`}
-                    >
-                      <span>{opt.label}</span>
-                      {selectedSort === opt.value && <Check className="w-3.5 h-3.5" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Customize Columns Dropdown (All Tasks List View only) */}
             {!isMyTasks && activeView === 'list' && (
               <div className="relative">
@@ -733,6 +814,35 @@ export function TaskToolbar({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Lock Filter Button */}
+            {!isMyTasks && (
+              <button
+                type="button"
+                onClick={onToggleLockFilters}
+                aria-pressed={isFiltersLocked ? 'true' : 'false'}
+                aria-label={isFiltersLocked ? 'Unlock filters for this page' : 'Lock filters for this page'}
+                title={
+                  isFiltersLocked
+                    ? 'These filters are saved for this page. Click to unlock.'
+                    : 'Keep these filters when you return to this page'
+                }
+                className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs select-none ${
+                  isFiltersLocked
+                    ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold hover:bg-[#D1FAE5] dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399] dark:hover:bg-[#064E3B]/50'
+                    : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B] dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5] dark:hover:bg-[#27272A]'
+                }`}
+              >
+                <Lock
+                  className={`w-3.5 h-3.5 ${
+                    isFiltersLocked
+                      ? 'text-[#059669] dark:text-[#34D399]'
+                      : 'text-[#71717A] dark:text-[#A1A1AA]'
+                  }`}
+                />
+                <span>{isFiltersLocked ? 'Locked' : 'Lock Filter'}</span>
+              </button>
             )}
           </div>
         </>

@@ -49,12 +49,18 @@ export function TaskFilterChips({
     });
   }
 
-  if (selectedDept !== 'all') {
-    const dept = departments.find((d) => d.id === selectedDept);
-    chips.push({
-      id: 'dept',
-      label: `Department: ${dept?.name || 'Selected'}`,
-      onRemove: onClearDept,
+  if (selectedDept !== 'all' && selectedDept) {
+    const deptIds = selectedDept.split(',').filter(Boolean);
+    deptIds.forEach((deptId) => {
+      const dept = departments.find((d) => d.id === deptId);
+      chips.push({
+        id: `dept-${deptId}`,
+        label: `Dept: ${dept?.name || deptId}`,
+        onRemove: () => {
+          const next = deptIds.filter((id) => id !== deptId);
+          onClearDept(next.length === 0 ? 'all' : next.join(','));
+        },
+      });
     });
   }
 
@@ -66,12 +72,18 @@ export function TaskFilterChips({
     });
   }
 
-  if (selectedAssignedTo !== 'all') {
-    const user = users.find((u) => u.id === selectedAssignedTo);
-    chips.push({
-      id: 'assigned_to',
-      label: `Assignee: ${user?.full_name || 'Selected'}`,
-      onRemove: onClearAssignedTo,
+  if (selectedAssignedTo !== 'all' && selectedAssignedTo) {
+    const assigneeIds = selectedAssignedTo.split(',').filter(Boolean);
+    assigneeIds.forEach((uid) => {
+      const user = users.find((u) => u.id === uid);
+      chips.push({
+        id: `assigned_to-${uid}`,
+        label: `Assignee: ${user?.full_name?.split(' ')[0] || user?.full_name || 'Member'}`,
+        onRemove: () => {
+          const next = assigneeIds.filter((id) => id !== uid);
+          onClearAssignedTo(next.length === 0 ? 'all' : next.join(','));
+        },
+      });
     });
   }
 
