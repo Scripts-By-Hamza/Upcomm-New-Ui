@@ -12,7 +12,7 @@ import { AdminDashboardKpiRow } from './AdminDashboardKpiRow';
 import { DepartmentAttentionPanel } from './DepartmentAttentionPanel';
 import { DepartmentDueToday } from './DepartmentDueToday';
 import { DepartmentTeamWorkload } from './DepartmentTeamWorkload';
-import { DepartmentCompletionRequests } from './DepartmentCompletionRequests';
+import { DashboardRecentComments } from './DashboardRecentComments';
 import { DepartmentRecentActivity } from './DepartmentRecentActivity';
 import { Building2 } from 'lucide-react';
 
@@ -219,17 +219,13 @@ export function HODDashboardView() {
           <DepartmentDueToday tasks={departmentTasks} users={users} />
         </div>
 
-        {/* Right Column: Team Workload & Completion Requests */}
+        {/* Right Column: Recent Comments & Team Workload */}
         <div className="space-y-5">
+          <DashboardRecentComments tasks={departmentTasks} users={users} />
           <DepartmentTeamWorkload
             tasks={departmentTasks}
             users={users}
             departmentId={departmentId}
-          />
-          <DepartmentCompletionRequests
-            requests={reviewableCompletionRequests}
-            users={users}
-            tasks={tasks}
           />
         </div>
       </div>
