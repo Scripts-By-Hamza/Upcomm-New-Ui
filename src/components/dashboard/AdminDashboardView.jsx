@@ -7,6 +7,7 @@ import { AdminDashboardHeader } from './AdminDashboardHeader';
 import { AdminDashboardKpiRow } from './AdminDashboardKpiRow';
 import { DashboardAttentionPanel } from './DashboardAttentionPanel';
 import { DashboardTodayTasks } from './DashboardTodayTasks';
+import { DashboardRecentComments } from './DashboardRecentComments';
 import { DashboardTeamWorkload } from './DashboardTeamWorkload';
 import { DashboardRecentActivity } from './DashboardRecentActivity';
 import { DashboardDepartmentOverview } from './DashboardDepartmentOverview';
@@ -182,8 +183,9 @@ export function AdminDashboardView() {
           <DashboardTodayTasks tasks={tasks} users={users} />
         </div>
 
-        {/* Right Column: Team Workload & Recent Activity */}
+        {/* Right Column: Recent Comments, Team Workload & Recent Activity */}
         <div className="space-y-5">
+          <DashboardRecentComments tasks={tasks} users={users} />
           <DashboardTeamWorkload tasks={tasks} users={users} />
           <DashboardRecentActivity
             activityLogs={activityLogs}

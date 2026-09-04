@@ -24,6 +24,7 @@ import { ReportsPage } from './pages/reports/ReportsPage';
 import { PersonalTasksPage } from './pages/tasks/PersonalTasksPage';
 import { InboxPage } from './pages/inbox/InboxPage';
 import { CompletionRequestsPage } from './pages/completion-requests/CompletionRequestsPage';
+import { MonthlyTargetsPage } from './pages/performance/MonthlyTargetsPage';
 
 export default function App() {
   return (
@@ -98,6 +99,11 @@ export default function App() {
               />
               <Route path="directory" element={<Navigate to="/team/users" replace />} />
               <Route path="users" element={<Navigate to="/team/users" replace />} />
+              {/* Performance & Monthly Targets & KPIs */}
+              <Route path="monthly-targets" element={<MonthlyTargetsPage />} />
+              <Route path="performance/monthly-targets" element={<MonthlyTargetsPage />} />
+              <Route path="performance" element={<Navigate to="/monthly-targets" replace />} />
+
               {/* Management Requests & Legacy Request Redirects */}
               <Route path="inbox" element={<InboxPage />} />
               <Route path="requests" element={<InboxPage />} />

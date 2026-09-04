@@ -5,6 +5,8 @@ import { INITIAL_DELETE_REQUESTS } from '../data/dummyDeleteRequests';
 import { INITIAL_ACTIVITY_LOGS, INITIAL_SETTINGS, INITIAL_PERMISSIONS, INITIAL_INTEGRATIONS } from '../data/dummyActivityLogs';
 import { INITIAL_REPORTS } from '../data/dummyReports';
 import { INITIAL_PERSONAL_TASKS } from '../data/dummyPersonalTasks';
+import { INITIAL_MONTHLY_TARGETS, INITIAL_MONTHLY_TARGET_COMMENTS } from '../data/dummyMonthlyTargets';
+import { calculateMonthEndDate } from '../utils/monthlyTargets/monthlyTargetUtils';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { canReviewCompletionRequest, canReviewDeleteRequest } from '../utils/rbac/permissionManager';
@@ -111,6 +113,37 @@ export function AppDataProvider({ children }) {
   const [permissions, setPermissions] = useState(INITIAL_PERMISSIONS);
   const [integrations, setIntegrations] = useState(INITIAL_INTEGRATIONS);
 
+  // Dedicated state for Monthly Targets & KPIs (isolated from normal company tasks)
+  const [monthlyTargets, setMonthlyTargets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('upcomm_monthly_targets');
+      return saved ? JSON.parse(saved) : INITIAL_MONTHLY_TARGETS;
+    } catch (e) {
+      return INITIAL_MONTHLY_TARGETS;
+    }
+  });
+
+  const [monthlyTargetComments, setMonthlyTargetComments] = useState(() => {
+    try {
+      const saved = localStorage.getItem('upcomm_monthly_target_comments');
+      return saved ? JSON.parse(saved) : INITIAL_MONTHLY_TARGET_COMMENTS;
+    } catch (e) {
+      return INITIAL_MONTHLY_TARGET_COMMENTS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('upcomm_monthly_targets', JSON.stringify(monthlyTargets));
+    } catch (e) {}
+  }, [monthlyTargets]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('upcomm_monthly_target_comments', JSON.stringify(monthlyTargetComments));
+    } catch (e) {}
+  }, [monthlyTargetComments]);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(new Date());
 
@@ -144,6 +177,8 @@ export function AppDataProvider({ children }) {
         supabase.from('reports').select('*').order('created_at', { ascending: false }),
         supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(150),
         supabase.from('task_completion_requests').select('*').order('created_at', { ascending: false }),
+        supabase.from('monthly_targets').select('*').order('created_at', { ascending: false }),
+        supabase.from('monthly_target_comments').select('*').order('created_at', { ascending: true }),
       ];
 
       if (currentUser?.id) {
@@ -173,6 +208,8 @@ export function AppDataProvider({ children }) {
         reportsRes,
         activityRes,
         compReqsRes,
+        monthlyTargetsRes,
+        monthlyCommentsRes,
         pTasksRes,
         readStateRes,
       ] = results;
@@ -194,6 +231,12 @@ export function AppDataProvider({ children }) {
       if (!compReqsRes.error && compReqsRes.data) setCompletionRequests(compReqsRes.data);
       if (!reportsRes.error && reportsRes.data) setReports(reportsRes.data);
       if (!activityRes.error && activityRes.data && activityRes.data.length > 0) setActivityLogs(activityRes.data);
+      if (monthlyTargetsRes && !monthlyTargetsRes.error && monthlyTargetsRes.data && monthlyTargetsRes.data.length > 0) {
+        setMonthlyTargets(monthlyTargetsRes.data);
+      }
+      if (monthlyCommentsRes && !monthlyCommentsRes.error && monthlyCommentsRes.data && monthlyCommentsRes.data.length > 0) {
+        setMonthlyTargetComments(monthlyCommentsRes.data);
+      }
       if (pTasksRes && !pTasksRes.error && pTasksRes.data) {
         setPersonalTasks(pTasksRes.data);
       } else if (!pTasksRes || pTasksRes.error) {
@@ -2082,6 +2125,191 @@ export function AppDataProvider({ children }) {
     }
   };
 
+  // ==========================================
+  // MONTHLY TARGETS & KPIs (SEPARATE DOMAIN)
+  // ==========================================
+
+  const createMonthlyTarget = async (targetData) => {
+    const nowIso = new Date().toISOString();
+    const newId = `mt-${Date.now()}`;
+    const year = parseInt(targetData.year, 10) || new Date().getFullYear();
+    const month = parseInt(targetData.month, 10) || (new Date().getMonth() + 1);
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+    const dueDate = targetData.due_date || calculateMonthEndDate(year, month);
+
+    const newTarget = {
+      id: newId,
+      title: targetData.title?.trim() || 'Untitled Monthly Target',
+      description: targetData.description?.trim() || '',
+      month,
+      year,
+      target_month: monthKey,
+      due_date: dueDate,
+      status: targetData.status || 'not_started',
+      priority: targetData.priority || 'medium',
+      type: targetData.type || 'target', // 'target' | 'kpi'
+      progress: targetData.status === 'completed' ? 100 : (targetData.progress || 0),
+      kpi_target_value: targetData.kpi_target_value !== undefined && targetData.kpi_target_value !== '' ? Number(targetData.kpi_target_value) : null,
+      kpi_current_value: targetData.kpi_current_value !== undefined && targetData.kpi_current_value !== '' ? Number(targetData.kpi_current_value) : (targetData.type === 'kpi' ? 0 : null),
+      kpi_unit: targetData.kpi_unit?.trim() || null,
+      owner_user_id: targetData.owner_user_id || currentUser?.id,
+      department_id: targetData.department_id || currentUser?.department_id || null,
+      created_by: currentUser?.id,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('monthly_targets')
+          .insert([newTarget])
+          .select()
+          .single();
+
+        if (!error && data) {
+          setMonthlyTargets((prev) => [data, ...prev.filter((t) => t.id !== data.id)]);
+          return data;
+        }
+      } catch (err) {
+        console.warn('Supabase monthly_targets insert fallback:', err);
+      }
+    }
+
+    setMonthlyTargets((prev) => [newTarget, ...prev]);
+    return newTarget;
+  };
+
+  const updateMonthlyTarget = async (targetId, updateData) => {
+    const nowIso = new Date().toISOString();
+    let updatedObj = null;
+
+    setMonthlyTargets((prev) =>
+      prev.map((target) => {
+        if (target.id === targetId) {
+          const year = updateData.year !== undefined ? parseInt(updateData.year, 10) : target.year;
+          const month = updateData.month !== undefined ? parseInt(updateData.month, 10) : target.month;
+          const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+          const dueDate = updateData.due_date || (updateData.month || updateData.year ? calculateMonthEndDate(year, month) : target.due_date);
+
+          let progress = target.progress;
+          if (updateData.status === 'completed') {
+            progress = 100;
+          } else if (updateData.progress !== undefined) {
+            progress = updateData.progress;
+          }
+
+          updatedObj = {
+            ...target,
+            ...updateData,
+            progress,
+            year,
+            month,
+            target_month: monthKey,
+            due_date: dueDate,
+            updated_at: nowIso,
+          };
+          return updatedObj;
+        }
+        return target;
+      })
+    );
+
+    if (isSupabaseConfigured && supabase && updatedObj) {
+      try {
+        await supabase
+          .from('monthly_targets')
+          .update(updatedObj)
+          .eq('id', targetId);
+      } catch (err) {
+        console.warn('Supabase monthly target update error:', err);
+      }
+    }
+
+    return updatedObj;
+  };
+
+  const updateMonthlyTargetStatus = async (targetId, newStatus, newProgress = null) => {
+    const nowIso = new Date().toISOString();
+    let updatedObj = null;
+
+    setMonthlyTargets((prev) =>
+      prev.map((target) => {
+        if (target.id === targetId) {
+          const progress =
+            newProgress !== null
+              ? newProgress
+              : newStatus === 'completed'
+              ? 100
+              : target.progress;
+
+          updatedObj = {
+            ...target,
+            status: newStatus,
+            progress,
+            updated_at: nowIso,
+          };
+          return updatedObj;
+        }
+        return target;
+      })
+    );
+
+    if (isSupabaseConfigured && supabase && updatedObj) {
+      try {
+        await supabase
+          .from('monthly_targets')
+          .update({ status: newStatus, progress: updatedObj.progress, updated_at: nowIso })
+          .eq('id', targetId);
+      } catch (err) {
+        console.warn('Supabase monthly target status update error:', err);
+      }
+    }
+
+    return updatedObj;
+  };
+
+  const deleteMonthlyTarget = async (targetId) => {
+    setMonthlyTargets((prev) => prev.filter((t) => t.id !== targetId));
+    setMonthlyTargetComments((prev) => prev.filter((c) => c.target_id !== targetId));
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('monthly_targets').delete().eq('id', targetId);
+        await supabase.from('monthly_target_comments').delete().eq('target_id', targetId);
+      } catch (err) {
+        console.warn('Supabase monthly target delete error:', err);
+      }
+    }
+  };
+
+  const addMonthlyTargetComment = async (targetId, commentData) => {
+    const nowIso = new Date().toISOString();
+    const newComment = {
+      id: `mtc-${Date.now()}`,
+      target_id: targetId,
+      user_id: currentUser?.id || 'usr-admin-1',
+      user_name: currentUser?.full_name || 'Team Member',
+      user_avatar: currentUser?.avatar_url || '',
+      user_role: currentUser?.role || 'team_member',
+      text: commentData.text?.trim() || '',
+      attachments: commentData.attachments || [],
+      created_at: nowIso,
+    };
+
+    setMonthlyTargetComments((prev) => [...prev, newComment]);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('monthly_target_comments').insert([newComment]);
+      } catch (err) {
+        console.warn('Supabase monthly target comment insert error:', err);
+      }
+    }
+
+    return newComment;
+  };
+
   const value = {
     departments,
     tasks: tasks.filter((t) => !t.is_deleted), // Non-deleted tasks
@@ -2091,6 +2319,8 @@ export function AppDataProvider({ children }) {
     activityLogs,
     reports,
     personalTasks,
+    monthlyTargets,
+    monthlyTargetComments,
     settings,
     permissions,
     integrations,
@@ -2129,6 +2359,11 @@ export function AppDataProvider({ children }) {
     updatePersonalTask,
     deletePersonalTask,
     reorderPersonalTasks,
+    createMonthlyTarget,
+    updateMonthlyTarget,
+    updateMonthlyTargetStatus,
+    deleteMonthlyTarget,
+    addMonthlyTargetComment,
     refreshAllData,
     isRefreshing,
     lastRefreshedAt,

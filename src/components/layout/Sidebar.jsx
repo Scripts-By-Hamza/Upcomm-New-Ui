@@ -12,6 +12,7 @@ import {
   canReviewDeleteRequest,
   canUserViewTask,
 } from '../../utils/rbac/permissionManager';
+import { canViewMonthlyTarget } from '../../utils/monthlyTargets/monthlyTargetPermissions';
 import { UnreadBadge } from '../common/UnreadBadge';
 import { getViewUnreadCounts } from '../../utils/comments/unreadCommentSelectors';
 import { Avatar } from '../common/Avatar';
@@ -35,6 +36,7 @@ import {
   PlusCircle,
   ShieldCheck,
   Shield,
+  Target,
 } from 'lucide-react';
 
 export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse, onNavItemClick, onOpenCommandPalette }) {
@@ -45,6 +47,8 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
     tasks = [],
     readChatIds = [],
     departments = [],
+    monthlyTargets = [],
+    monthlyTargetComments = [],
   } = useAppData();
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,6 +87,30 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
       users,
     });
   }, [scopedTasks, userId, readChatIds, isAdmin, users]);
+
+  // Scoped Monthly Targets for Unread Comments Calculation
+  const monthlyTargetsUnreadCount = useMemo(() => {
+    if (!currentUser || !Array.isArray(monthlyTargets) || !Array.isArray(monthlyTargetComments)) {
+      return 0;
+    }
+
+    const authorizedTargetIds = new Set(
+      monthlyTargets
+        .filter((t) => canViewMonthlyTarget(currentUser, t, users, departments))
+        .map((t) => t.id)
+    );
+
+    let unreadCount = 0;
+    monthlyTargetComments.forEach((c) => {
+      if (!c || !c.target_id) return;
+      if (!authorizedTargetIds.has(c.target_id)) return;
+      if (c.user_id && String(c.user_id) === String(currentUser.id)) return;
+      if (c.id && readChatIds.some((id) => String(id) === String(c.id))) return;
+      unreadCount++;
+    });
+
+    return unreadCount;
+  }, [monthlyTargets, monthlyTargetComments, currentUser, users, departments, readChatIds]);
 
   // Scoped Delete Requests Count (Admin only)
   const pendingDeleteCount = useMemo(() => {
@@ -497,7 +525,30 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
           </div>
         </div>
 
-        {/* GROUP 3: MANAGEMENT */}
+        {/* GROUP 3: PERFORMANCE */}
+        <div>
+          {!isCollapsed && (
+            <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8B8B95]">
+              Performance
+            </div>
+          )}
+          <div className="space-y-0.5">
+            <NavItem
+              to="/monthly-targets"
+              label="Monthly Targets & KPIs"
+              icon={Target}
+              badge={monthlyTargetsUnreadCount > 0 ? monthlyTargetsUnreadCount : null}
+              badgeColor="bg-[#2563EB] text-white font-bold"
+              isActive={
+                location.pathname === '/monthly-targets' ||
+                location.pathname.startsWith('/monthly-targets/') ||
+                location.pathname === '/performance/monthly-targets'
+              }
+            />
+          </div>
+        </div>
+
+        {/* GROUP 4: MANAGEMENT */}
         <div>
           {!isCollapsed && (
             <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8B8B95]">
