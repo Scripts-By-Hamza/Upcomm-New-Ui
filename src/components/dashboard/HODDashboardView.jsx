@@ -2,7 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { isTaskOverdue, isTaskDueSoon } from '../../utils/dateUtils';
-import { isTaskInDepartment } from '../../utils/taskDepartmentUtils';
+import {
+  isTaskInDepartment,
+  getTaskAssigneeIds,
+  getTaskAssistantIds,
+} from '../../utils/taskDepartmentUtils';
 import { DepartmentDashboardHeader } from './DepartmentDashboardHeader';
 import { AdminDashboardKpiRow } from './AdminDashboardKpiRow';
 import { DepartmentAttentionPanel } from './DepartmentAttentionPanel';
@@ -101,6 +105,28 @@ export function HODDashboardView() {
   const overdueCount = filteredDepartmentTasks.filter((t) => isTaskOverdue(t.due_date, t.status)).length;
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  // Tasks created by this HOD
+  const createdByCurrentUserCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter(
+      (t) => t.created_by === currentUser.id || t.assigned_by === currentUser.id
+    ).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
+  // Tasks assigned to this HOD
+  const assignedToCurrentUserCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter((t) => {
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
   // Department tasks created in the past 7 days for truthful trend
   const createdThisWeekCount = useMemo(() => {
     const oneWeekAgo = new Date();
@@ -177,6 +203,8 @@ export function HODDashboardView() {
         completedCount={completedCount}
         totalCount={totalCount}
         createdThisWeekCount={createdThisWeekCount}
+        createdByCount={createdByCurrentUserCount}
+        assignedToCount={assignedToCurrentUserCount}
       />
 
       {/* 3. Main Two-Column Balanced Grid */}

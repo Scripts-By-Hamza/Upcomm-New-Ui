@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { isTaskOverdue } from '../../utils/dateUtils';
+import { getTaskAssigneeIds, getTaskAssistantIds } from '../../utils/taskDepartmentUtils';
 import { AdminDashboardHeader } from './AdminDashboardHeader';
 import { AdminDashboardKpiRow } from './AdminDashboardKpiRow';
 import { DashboardAttentionPanel } from './DashboardAttentionPanel';
@@ -88,6 +89,28 @@ export function AdminDashboardView() {
   const overdueCount = filteredTasks.filter((t) => isTaskOverdue(t.due_date, t.status)).length;
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  // Tasks created by the logged-in user
+  const createdByCurrentUserCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter(
+      (t) => t.created_by === currentUser.id || t.assigned_by === currentUser.id
+    ).length;
+  }, [filteredTasks, currentUser]);
+
+  // Tasks assigned to the logged-in user
+  const assignedToCurrentUserCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter((t) => {
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredTasks, currentUser]);
+
   // Calculate tasks created in the past 7 days for truthful trend
   const createdThisWeekCount = useMemo(() => {
     const oneWeekAgo = new Date();
@@ -143,6 +166,8 @@ export function AdminDashboardView() {
         completedCount={completedCount}
         totalCount={totalCount}
         createdThisWeekCount={createdThisWeekCount}
+        createdByCount={createdByCurrentUserCount}
+        assignedToCount={assignedToCurrentUserCount}
       />
 
       {/* 3. Main Two-Column Balanced Grid */}

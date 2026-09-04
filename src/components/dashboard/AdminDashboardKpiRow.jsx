@@ -10,6 +10,8 @@ export function AdminDashboardKpiRow({
   completedCount = 0,
   totalCount = 0,
   createdThisWeekCount = 0,
+  createdByCount = 0,
+  assignedToCount = 0,
 }) {
   const navigate = useNavigate();
 
@@ -18,14 +20,25 @@ export function AdminDashboardKpiRow({
 
   const kpis = [
     {
-      id: 'active',
-      label: 'Active Tasks',
-      value: activeTasksCount,
-      subtext:
-        createdThisWeekCount > 0
-          ? `+${createdThisWeekCount} this week`
-          : `${activeTasksCount} currently open`,
-      subtextColor: 'text-[#059669]',
+      id: 'total',
+      label: 'Total Tasks',
+      value: totalCount,
+      subtextNode: (
+        <div className="mt-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-[#059669]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] flex-shrink-0"></span>
+            <span>{activeTasksCount} Active</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#71717A]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Created <span className="font-semibold text-[#18181B]">{createdByCount}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Assigned <span className="font-semibold text-[#18181B]">{assignedToCount}</span>
+            </span>
+          </div>
+        </div>
+      ),
       icon: ClipboardList,
       iconColor: 'text-[#18181B]',
       valueColor: 'text-[#18181B]',
@@ -35,8 +48,12 @@ export function AdminDashboardKpiRow({
       id: 'in_progress',
       label: 'In Progress',
       value: inProgressCount,
-      subtext: `${inProgressPercentage}% of active work`,
-      subtextColor: 'text-[#71717A]',
+      subtextNode: (
+        <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-[#71717A]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] flex-shrink-0"></span>
+          <span>{inProgressPercentage}% of active work</span>
+        </div>
+      ),
       icon: CircleDot,
       iconColor: 'text-[#18181B]',
       valueColor: 'text-[#2563EB]',
@@ -46,8 +63,12 @@ export function AdminDashboardKpiRow({
       id: 'overdue',
       label: 'Overdue',
       value: overdueCount,
-      subtext: overdueCount > 0 ? 'Needs attention' : 'All on track',
-      subtextColor: overdueCount > 0 ? 'text-[#DC2626]' : 'text-[#059669]',
+      subtextNode: (
+        <div className={`mt-2 flex items-center gap-1.5 text-[12px] font-medium ${overdueCount > 0 ? 'text-[#DC2626]' : 'text-[#059669]'}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${overdueCount > 0 ? 'bg-[#DC2626]' : 'bg-[#10B981]'} flex-shrink-0`}></span>
+          <span>{overdueCount > 0 ? `${overdueCount} need attention` : 'All on track'}</span>
+        </div>
+      ),
       icon: AlertCircle,
       iconColor: 'text-[#DC2626]',
       valueColor: 'text-[#DC2626]',
@@ -57,8 +78,12 @@ export function AdminDashboardKpiRow({
       id: 'completion_rate',
       label: 'Completion Rate',
       value: `${completionRate}%`,
-      subtext: `${completedCount} of ${totalCount} completed`,
-      subtextColor: 'text-[#059669]',
+      subtextNode: (
+        <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-[#059669]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] flex-shrink-0"></span>
+          <span>{completedCount} of {totalCount} completed</span>
+        </div>
+      ),
       icon: TrendingUp,
       iconColor: 'text-[#18181B]',
       valueColor: 'text-[#18181B]',
@@ -89,9 +114,13 @@ export function AdminDashboardKpiRow({
               <div className={`text-[28px] font-bold tracking-tight mt-1.5 leading-none ${kpi.valueColor}`}>
                 {kpi.value}
               </div>
-              <div className={`text-[12px] font-medium mt-2 leading-tight ${kpi.subtextColor}`}>
-                {kpi.subtext}
-              </div>
+              {kpi.subtextNode ? (
+                kpi.subtextNode
+              ) : (
+                <div className={`text-[12px] font-medium mt-2 leading-tight ${kpi.subtextColor}`}>
+                  {kpi.subtext}
+                </div>
+              )}
             </div>
           </div>
         );
