@@ -26,6 +26,8 @@ export function MyTasksPlannerList({
   onResetFilters,
   onOpenTask,
   onEditTask,
+  unreadFilter = false,
+  onClearUnread,
 }) {
   const navigate = useNavigate();
 
@@ -170,28 +172,51 @@ export function MyTasksPlannerList({
             {totalVisibleCount === 0 ? (
               <tr>
                 <td colSpan={9} className="py-14 text-center">
-                  <div className="max-w-sm mx-auto space-y-2">
-                    <ListTodo className="w-8 h-8 text-[#A1A1AA] mx-auto opacity-60" />
-                    <h4 className="text-[14px] font-semibold text-[#18181B]">
-                      {hasActiveFilters
-                        ? 'No matching tasks'
-                        : 'No tasks assigned to you'}
-                    </h4>
-                    <p className="text-[12.5px] text-[#71717A]">
-                      {hasActiveFilters
-                        ? 'Try clearing active filters to see your work.'
-                        : "You don't have any active assigned tasks right now."}
-                    </p>
-                    {hasActiveFilters && (
-                      <button
-                        type="button"
-                        onClick={onResetFilters}
-                        className="mt-2 px-3 py-1.5 rounded-[7px] text-[12px] font-semibold text-[#059669] bg-[#ECFDF5] hover:bg-[#D1FAE5] transition-colors cursor-pointer"
-                      >
-                        Clear filters
-                      </button>
-                    )}
-                  </div>
+                  {unreadFilter ? (
+                    <div className="max-w-sm mx-auto space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-[#ECFDF5] flex items-center justify-center mx-auto text-[#059669] dark:bg-[#064E3B]/30 dark:text-[#34D399]">
+                        <MessageSquare className="w-5 h-5" />
+                      </div>
+                      <h4 className="text-[14px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                        No unread messages
+                      </h4>
+                      <p className="text-[12.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                        You're all caught up on task conversations.
+                      </p>
+                      {(onClearUnread || onResetFilters) && (
+                        <button
+                          type="button"
+                          onClick={onClearUnread || onResetFilters}
+                          className="mt-2 px-3.5 py-1.5 rounded-[7px] text-[12px] font-semibold text-[#059669] bg-[#ECFDF5] hover:bg-[#D1FAE5] transition-colors cursor-pointer dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399] dark:hover:bg-[#064E3B]/50"
+                        >
+                          Show all tasks
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="max-w-sm mx-auto space-y-2">
+                      <ListTodo className="w-8 h-8 text-[#A1A1AA] mx-auto opacity-60 dark:text-[#71717A]" />
+                      <h4 className="text-[14px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                        {hasActiveFilters
+                          ? 'No matching tasks'
+                          : 'No tasks assigned to you'}
+                      </h4>
+                      <p className="text-[12.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                        {hasActiveFilters
+                          ? 'Try clearing active filters to see your work.'
+                          : "You don't have any active assigned tasks right now."}
+                      </p>
+                      {hasActiveFilters && (
+                        <button
+                          type="button"
+                          onClick={onResetFilters}
+                          className="mt-2 px-3 py-1.5 rounded-[7px] text-[12px] font-semibold text-[#059669] bg-[#ECFDF5] hover:bg-[#D1FAE5] transition-colors cursor-pointer dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399] dark:hover:bg-[#064E3B]/50"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </td>
               </tr>
             ) : (

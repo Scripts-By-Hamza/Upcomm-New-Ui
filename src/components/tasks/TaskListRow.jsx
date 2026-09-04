@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../common/Avatar';
+import { UnreadBadge } from '../common/UnreadBadge';
+import { getTaskUnreadCount } from '../../utils/comments/unreadCommentSelectors';
 import {
   Flag,
   MoreHorizontal,
@@ -119,18 +121,10 @@ export function TaskListRow({
 
   // Activity counts
   const updates = task.task_updates || [];
-  const messageCount = updates.filter((u) => Boolean(u.text && u.text.trim())).length;
+  const unreadCommentCount = getTaskUnreadCount(task, currentUser?.id, readChatIds);
   const attachmentCount =
     (task.attachments?.length || 0) +
     updates.reduce((acc, u) => acc + (u.attachments?.length || 0), 0);
-
-  // Unread messages check
-  const hasUnread = updates.some((u) => {
-    if (u.user_id === currentUser?.id) return false;
-    const isSeenInUpdate = Array.isArray(u.seen_by) && u.seen_by.includes(currentUser?.id);
-    const isReadInChat = readChatIds.includes(u.id);
-    return !isSeenInUpdate && !isReadInChat;
-  });
 
   // Pending Completion Request Check
   const pendingCompletionRequest = (completionRequests || []).find(
@@ -473,18 +467,20 @@ export function TaskListRow({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-end gap-2.5">
-            {/* Messages Count */}
-            {messageCount > 0 && (
+            {/* Unread Comments Indicator - shown ONLY when unreadCommentCount > 0 */}
+            {unreadCommentCount > 0 && (
               <div
-                className="flex items-center gap-1 text-[#71717A] text-[11px] relative cursor-pointer hover:text-[#18181B]"
-                title={`${messageCount} comments / updates`}
-                onClick={() => navigate(`/tasks/${task.id}`)}
+                className="flex items-center gap-1 text-[#2563EB] dark:text-[#3B82F6] text-[11px] font-medium relative cursor-pointer hover:opacity-80 transition-opacity"
+                title={`${unreadCommentCount} unread comment${unreadCommentCount === 1 ? '' : 's'}`}
+                aria-label={`Open ${unreadCommentCount} unread comment${unreadCommentCount === 1 ? '' : 's'} for ${task.task_number || task.title}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onTaskClick) onTaskClick(task);
+                  else navigate(`/tasks/${task.id}`);
+                }}
               >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>{messageCount}</span>
-                {hasUnread && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 absolute -top-0.5 -right-1" />
-                )}
+                <MessageSquare className="w-3.5 h-3.5 fill-blue-50 dark:fill-blue-950/40" />
+                <UnreadBadge count={unreadCommentCount} size="sm" />
               </div>
             )}
 

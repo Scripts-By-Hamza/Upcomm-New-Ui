@@ -140,6 +140,7 @@ export function TaskDetailContent({
     reviewCompletionRequest,
     markTaskUpdatesAsSeen,
     markAllChatsAsRead,
+    markTaskCommentsRead,
     softDeleteTask,
   } = useAppData();
   const { currentUser, users = [] } = useAuth();
@@ -196,16 +197,20 @@ export function TaskDetailContent({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Mark all unread updates as seen upon opening
+  // Mark all unread comments as read upon opening or switching to Comments tab
   useEffect(() => {
-    if (task?.id && currentUser?.id && markTaskUpdatesAsSeen) {
-      markTaskUpdatesAsSeen(task.id, currentUser.id);
+    if (task?.id && currentUser?.id && activeTab === 'comments' && document.visibilityState === 'visible') {
+      if (markTaskCommentsRead) {
+        markTaskCommentsRead(task.id);
+      } else {
+        if (markTaskUpdatesAsSeen) markTaskUpdatesAsSeen(task.id, currentUser.id);
+        if (task?.task_updates && markAllChatsAsRead) {
+          const chatKeys = task.task_updates.map((u) => u.id).filter(Boolean);
+          markAllChatsAsRead(chatKeys);
+        }
+      }
     }
-    if (task?.task_updates && markAllChatsAsRead) {
-      const chatKeys = task.task_updates.map((u) => u.id).filter(Boolean);
-      markAllChatsAsRead(chatKeys);
-    }
-  }, [task?.id, task?.task_updates, currentUser?.id, markTaskUpdatesAsSeen, markAllChatsAsRead]);
+  }, [task?.id, task?.task_updates, currentUser?.id, activeTab, markTaskCommentsRead, markTaskUpdatesAsSeen, markAllChatsAsRead]);
 
   // Auto-scroll chat feed on new comments
   useEffect(() => {

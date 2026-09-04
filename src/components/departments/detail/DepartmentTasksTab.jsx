@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { Search, X } from 'lucide-react';
 import { useAppData } from '../../../contexts/AppDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isTaskInDepartment, getTaskAssigneeIds } from '../../../utils/taskDepartmentUtils';
 import { isTaskOverdue, isTaskDueSoon } from '../../../utils/dateUtils';
+import { getTaskUnreadCount } from '../../../utils/comments/unreadCommentSelectors';
 import { TaskToolbar } from '../../tasks/TaskToolbar';
 import { TaskFilterChips } from '../../tasks/TaskFilterChips';
 import { TaskListTable } from '../../tasks/TaskListTable';
@@ -126,8 +128,7 @@ export function DepartmentTasksTab({
 
       // Unread filter
       if (unreadFilter) {
-        const updates = t.task_updates || [];
-        const hasUnread = updates.some((u) => !readChatIds.includes(u.id));
+        const hasUnread = getTaskUnreadCount(t, currentUser?.id, readChatIds) > 0;
         if (!hasUnread) return false;
       }
 
@@ -217,6 +218,66 @@ export function DepartmentTasksTab({
 
   return (
     <div className="space-y-4 select-none">
+      {/* 0. View Tabs & Search Header Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E7EB] pt-1">
+        {/* Left: View Tabs */}
+        <div className="flex items-center gap-6">
+          {[
+            { id: 'list', label: 'List' },
+            { id: 'board', label: 'Board' },
+            { id: 'calendar', label: 'Calendar' },
+          ].map((tab) => {
+            const isActive = activeView === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveView(tab.id)}
+                className={`pb-2.5 text-[13.5px] font-medium transition-colors relative cursor-pointer ${
+                  isActive
+                    ? 'text-[#18181B] font-semibold'
+                    : 'text-[#71717A] hover:text-[#18181B]'
+                }`}
+              >
+                <span>{tab.label}</span>
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#059669] rounded-t-sm" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right: Search tasks... */}
+        <div className="mb-2 w-full sm:w-[260px]">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-[#8B8B95] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search tasks..."
+              className="w-full pl-8 pr-7 h-9 bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669] rounded-[8px] text-[12.5px] text-[#18181B] placeholder:text-[#8B8B95] transition-all outline-none shadow-2xs dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5] dark:placeholder:text-[#71717A]"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setCurrentPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8B8B95] hover:text-[#18181B] p-0.5 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* 1. Task Toolbar */}
       <TaskToolbar
         search={search}
@@ -328,6 +389,8 @@ export function DepartmentTasksTab({
           onDirectDelete={handleDirectDelete}
           onOpenTask={onOpenTask}
           onEditTask={onEditTask}
+          unreadFilter={unreadFilter}
+          onClearUnread={() => setUnreadFilter(false)}
         />
       ) : (
         <div>
@@ -349,6 +412,8 @@ export function DepartmentTasksTab({
             onResetFilters={handleResetFilters}
             onOpenTask={onOpenTask}
             onEditTask={onEditTask}
+            unreadFilter={unreadFilter}
+            onClearUnread={() => setUnreadFilter(false)}
           />
 
           {sortedTasks.length > pageSize && (

@@ -8,6 +8,7 @@ import { INITIAL_PERSONAL_TASKS } from '../data/dummyPersonalTasks';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { canReviewCompletionRequest, canReviewDeleteRequest } from '../utils/rbac/permissionManager';
+import { playNotificationChime } from '../utils/audio/notificationSound';
 
 const AppDataContext = createContext(null);
 
@@ -93,6 +94,11 @@ export function cleanTaskDescription(description) {
 
 export function AppDataProvider({ children }) {
   const { currentUser, users, setUsers } = useAuth();
+  const currentUserRef = useRef(currentUser);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   const [departments, setDepartments] = useState(INITIAL_DEPARTMENTS);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
@@ -291,6 +297,14 @@ export function AppDataProvider({ children }) {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newUpd = parseUpdateRow(payload.new);
+            // Play notification chime for new comments from other users
+            if (
+              currentUserRef.current?.id &&
+              newUpd.user_id &&
+              String(newUpd.user_id) !== String(currentUserRef.current.id)
+            ) {
+              playNotificationChime();
+            }
             setTasks((prev) =>
               prev.map((t) => {
                 if (t.id === newUpd.task_id) {
@@ -1670,6 +1684,40 @@ export function AppDataProvider({ children }) {
     }
   }, []);
 
+  // Mark all comments/updates in a task as read for the current user
+  const markTaskCommentsRead = useCallback((taskId) => {
+    if (!taskId || !currentUser?.id) return;
+    const userId = currentUser.id;
+
+    // 1. Mark updates as seen in task state & sync to DB
+    markTaskUpdatesAsSeen(taskId, userId);
+
+    // 2. Mark chat update IDs as read
+    const targetTask = tasks.find((t) => t.id === taskId);
+    const updates = targetTask?.task_updates || [];
+    const chatIds = updates.map((u) => u.id).filter(Boolean);
+
+    // 3. Mark matching notification IDs as read
+    const notifIds = updates.flatMap((u, idx) => [
+      `notif-comment-${taskId}-${u.id || u.created_at || idx}`,
+      `notif-att-${taskId}-${u.id || u.created_at || idx}`,
+    ]);
+
+    setReadChatIds((prevChats) => {
+      const updatedChats = Array.from(new Set([...prevChats, ...chatIds]));
+      setReadNotificationIds((prevNotifs) => {
+        const updatedNotifs = Array.from(new Set([...prevNotifs, ...notifIds]));
+        try {
+          localStorage.setItem(`upcomm_read_chats_${userId}`, JSON.stringify(updatedChats));
+          localStorage.setItem(`upcomm_read_notifs_${userId}`, JSON.stringify(updatedNotifs));
+        } catch (e) {}
+        syncReadStateToSupabase(updatedNotifs, updatedChats);
+        return updatedNotifs;
+      });
+      return updatedChats;
+    });
+  }, [currentUser?.id, tasks, markTaskUpdatesAsSeen, syncReadStateToSupabase]);
+
   // --- REPORT ACTIONS ---
   const uploadReportFile = async (file) => {
     if (!file) return null;
@@ -2053,6 +2101,7 @@ export function AppDataProvider({ children }) {
     markAllChatsAsRead,
     markChatAsRead,
     markTaskUpdatesAsSeen,
+    markTaskCommentsRead,
     createTask,
     updateTaskStatus,
     addTaskUpdate,

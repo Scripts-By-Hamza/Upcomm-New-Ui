@@ -9,7 +9,66 @@
 import { canUserViewTask } from './rbac/permissionManager';
 
 export const FILTER_STORAGE_KEY_PREFIX = 'upcomm:task-filters:';
+export const UNREAD_FILTER_STORAGE_PREFIX = 'upcomm:task-unread-filter:';
 export const FILTER_STORAGE_VERSION = 1;
+
+/**
+ * Returns the scoped localStorage key for a user's unread filter state on a specific page.
+ */
+export function getUnreadFilterStorageKey(userId, pageKey) {
+  return `${UNREAD_FILTER_STORAGE_PREFIX}${userId || 'anonymous'}:${pageKey || 'all'}`;
+}
+
+/**
+ * Safely loads the persistent unread filter setting for a specific user and page.
+ */
+export function getPersistentUnreadFilter({ userId, pageKey }) {
+  if (!userId || !pageKey || typeof window === 'undefined' || !window.localStorage) {
+    return false;
+  }
+  try {
+    const key = getUnreadFilterStorageKey(userId, pageKey);
+    const val = localStorage.getItem(key);
+    return val === 'true';
+  } catch (err) {
+    console.warn('[taskFilterStorage] Failed to read unread filter preference:', err);
+    return false;
+  }
+}
+
+/**
+ * Safely saves the persistent unread filter setting for a specific user and page.
+ */
+export function savePersistentUnreadFilter({ userId, pageKey, isActive }) {
+  if (!userId || !pageKey || typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+  try {
+    const key = getUnreadFilterStorageKey(userId, pageKey);
+    if (isActive) {
+      localStorage.setItem(key, 'true');
+    } else {
+      localStorage.setItem(key, 'false');
+    }
+  } catch (err) {
+    console.warn('[taskFilterStorage] Failed to save unread filter preference:', err);
+  }
+}
+
+/**
+ * Safely removes the persistent unread filter setting for a specific user and page.
+ */
+export function removePersistentUnreadFilter({ userId, pageKey }) {
+  if (!userId || !pageKey || typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+  try {
+    const key = getUnreadFilterStorageKey(userId, pageKey);
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.warn('[taskFilterStorage] Failed to remove unread filter preference:', err);
+  }
+}
 
 /**
  * Returns the scoped localStorage key for a specific authenticated user.

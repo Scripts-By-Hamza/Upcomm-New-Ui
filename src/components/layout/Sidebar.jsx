@@ -10,7 +10,10 @@ import {
   canUserViewCompletionRequest,
   canReviewCompletionRequest,
   canReviewDeleteRequest,
+  canUserViewTask,
 } from '../../utils/rbac/permissionManager';
+import { UnreadBadge } from '../common/UnreadBadge';
+import { getViewUnreadCounts } from '../../utils/comments/unreadCommentSelectors';
 import { Avatar } from '../common/Avatar';
 import {
   Home,
@@ -36,7 +39,13 @@ import {
 
 export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse, onNavItemClick, onOpenCommandPalette }) {
   const { currentUser, users = [], logout } = useAuth();
-  const { deleteRequests = [], completionRequests = [], tasks = [] } = useAppData();
+  const {
+    deleteRequests = [],
+    completionRequests = [],
+    tasks = [],
+    readChatIds = [],
+    departments = [],
+  } = useAppData();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,6 +67,22 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
   const canSeePermissionsSubnav = canManagePermissions(currentUser);
   const canSeeReports = canViewReports(currentUser);
   const canSeeDepartments = canViewDepartments(currentUser);
+
+  // Scoped Tasks for Unread Badges Calculation
+  const scopedTasks = useMemo(() => {
+    const activeTasks = (tasks || []).filter((t) => !t.is_deleted);
+    return activeTasks.filter((t) => canUserViewTask(currentUser, t, users, departments));
+  }, [tasks, currentUser, users, departments]);
+
+  const viewUnreadCounts = useMemo(() => {
+    return getViewUnreadCounts({
+      scopedTasks,
+      currentUserId: userId,
+      readChatIds,
+      isAdmin,
+      users,
+    });
+  }, [scopedTasks, userId, readChatIds, isAdmin, users]);
 
   // Scoped Delete Requests Count (Admin only)
   const pendingDeleteCount = useMemo(() => {
@@ -97,8 +122,7 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
 
   const currentSearch = new URLSearchParams(location.search);
   const isMyTasksActive =
-    location.pathname === '/tasks/assigned-to-admin' ||
-    (location.pathname === '/tasks' && currentSearch.get('scope') === 'my');
+    location.pathname === '/tasks' && currentSearch.get('scope') === 'my';
 
   const isAllTasksActive =
     location.pathname.startsWith('/tasks') &&
@@ -269,15 +293,30 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
                   <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-[#059669]" />
                 )}
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <ListTodo className="w-[18px] h-[18px] text-[#71717A] group-hover:text-[#18181B] flex-shrink-0" />
+                  <div className="relative flex-shrink-0">
+                    <ListTodo className="w-[18px] h-[18px] text-[#71717A] group-hover:text-[#18181B]" />
+                    {isCollapsed && viewUnreadCounts.totalUnique > 0 && (
+                      <UnreadBadge
+                        count={viewUnreadCounts.totalUnique}
+                        size="dot"
+                        className="absolute -top-0.5 -right-0.5"
+                      />
+                    )}
+                  </div>
                   {!isCollapsed && <span className="truncate">All Tasks</span>}
                 </div>
                 {!isCollapsed && (
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-[#8B8B95] transition-transform duration-200 ${
-                      isTasksOpen ? 'rotate-180' : ''
-                    }`}
-                  />
+                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                    {/* Collapsed Parent Unread Badge (immediately before chevron) */}
+                    {!isTasksOpen && viewUnreadCounts.totalUnique > 0 && (
+                      <UnreadBadge count={viewUnreadCounts.totalUnique} />
+                    )}
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-[#8B8B95] transition-transform duration-200 ${
+                        isTasksOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
                 )}
               </div>
 
@@ -288,67 +327,88 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
                     end
                     onClick={onNavItemClick}
                     className={({ isActive }) =>
-                      `flex items-center px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
+                      `flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
                         isActive
                           ? 'text-[#059669] font-semibold bg-[#ECFDF5]'
                           : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
                       }`
                     }
                   >
-                    All Tasks
+                    <span>All Tasks</span>
                   </NavLink>
                   <NavLink
                     to="/tasks/pending-in-progress"
                     onClick={onNavItemClick}
                     className={({ isActive }) =>
-                      `flex items-center px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
+                      `flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
                         isActive
                           ? 'text-[#059669] font-semibold bg-[#ECFDF5]'
                           : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
                       }`
                     }
                   >
-                    Pending & in Progress
+                    <span>Pending & in Progress</span>
+                    <UnreadBadge count={viewUnreadCounts.pending_in_progress} size="sm" />
                   </NavLink>
                   <NavLink
                     to="/tasks/overdue"
                     onClick={onNavItemClick}
                     className={({ isActive }) =>
-                      `flex items-center px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
+                      `flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
                         isActive
                           ? 'text-[#DC2626] font-semibold bg-red-50'
                           : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
                       }`
                     }
                   >
-                    Overdue
+                    <span>Overdue</span>
+                    <UnreadBadge count={viewUnreadCounts.overdue} size="sm" />
                   </NavLink>
                   <NavLink
                     to="/tasks/completed"
                     onClick={onNavItemClick}
                     className={({ isActive }) =>
-                      `flex items-center px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
+                      `flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
                         isActive
                           ? 'text-[#059669] font-semibold bg-emerald-50'
                           : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
                       }`
                     }
                   >
-                    Completed
+                    <span>Completed</span>
+                    <UnreadBadge count={viewUnreadCounts.completed} size="sm" />
                   </NavLink>
-                  <NavLink
-                    to="/tasks/assigned-by-admin"
-                    onClick={onNavItemClick}
-                    className={({ isActive }) =>
-                      `flex items-center px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
-                        isActive
-                          ? 'text-[#059669] font-semibold bg-emerald-50'
-                          : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
-                      }`
-                    }
-                  >
-                    Assigned by Admin
-                  </NavLink>
+                  {isAdmin ? (
+                    <NavLink
+                      to="/tasks/assigned-by-admin"
+                      onClick={onNavItemClick}
+                      className={({ isActive }) =>
+                        `flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
+                          isActive
+                            ? 'text-[#059669] font-semibold bg-emerald-50'
+                            : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
+                        }`
+                      }
+                    >
+                      <span>Assigned by Admin</span>
+                      <UnreadBadge count={viewUnreadCounts.assigned_by_admin} size="sm" />
+                    </NavLink>
+                  ) : (
+                    <NavLink
+                      to="/tasks/assigned-to-admin"
+                      onClick={onNavItemClick}
+                      className={({ isActive }) =>
+                        `flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12.5px] transition-colors ${
+                          isActive
+                            ? 'text-[#059669] font-semibold bg-emerald-50'
+                            : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
+                        }`
+                      }
+                    >
+                      <span>Assigned to Admin</span>
+                      <UnreadBadge count={viewUnreadCounts.assigned_to_admin} size="sm" />
+                    </NavLink>
+                  )}
                 </div>
               )}
             </div>

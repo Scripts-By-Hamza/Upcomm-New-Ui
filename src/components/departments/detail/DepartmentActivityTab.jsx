@@ -118,6 +118,9 @@ export function DepartmentActivityTab({
     return groupActivitiesByDate(filteredActivities);
   }, [filteredActivities]);
 
+  const role = (currentUser?.role || '').toLowerCase();
+  const isAdmin = role === 'admin' || role === 'it_support_admin';
+
   return (
     <div className="space-y-5 select-none max-w-full">
       {/* 1. Filter Toolbar */}
@@ -128,6 +131,7 @@ export function DepartmentActivityTab({
         hasActiveFilters={hasActiveFilters}
         actors={departmentActors}
         tasks={departmentActivityTasks}
+        isAdmin={isAdmin}
       />
 
       {/* 2. Chronological Timeline Surface */}

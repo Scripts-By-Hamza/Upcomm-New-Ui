@@ -88,11 +88,14 @@ export function Header({
     if (path === '/tasks/completed') {
       return [{ label: 'Tasks', to: '/tasks' }, { label: 'Completed' }];
     }
+    const role = (currentUser?.role || 'team_member').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'it_support_admin';
+
     if (path === '/tasks/assigned-by-admin') {
-      return [{ label: 'Tasks', to: '/tasks' }, { label: 'Assigned by Admin' }];
+      return [{ label: 'Tasks', to: '/tasks' }, { label: isAdmin ? 'Assigned by Admin' : 'Assigned to Admin' }];
     }
     if (path === '/tasks/assigned-to-admin') {
-      return [{ label: 'My Work', to: '/dashboard' }, { label: 'My Tasks' }];
+      return [{ label: 'Tasks', to: '/tasks' }, { label: 'Assigned to Admin' }];
     }
     if (path.startsWith('/tasks/edit/')) {
       return [{ label: 'Tasks', to: '/tasks' }, { label: 'Edit Task' }];

@@ -43,6 +43,7 @@ export function ActivityToolbar({
   users = [],
   departments = [],
   tasks = [],
+  isAdmin = false,
   // Flat prop fallbacks
   searchQuery,
   onSearchChange,
@@ -86,11 +87,13 @@ export function ActivityToolbar({
     hasActiveFilters ||
     Boolean(
       activeFilters.searchQuery ||
-      activeFilters.employeeId !== 'all' ||
-      activeFilters.departmentId !== 'all' ||
-      activeFilters.taskId !== 'all' ||
-      activeFilters.actionType !== 'all' ||
-      activeFilters.dateRange !== 'all'
+      (isAdmin && (
+        activeFilters.employeeId !== 'all' ||
+        activeFilters.departmentId !== 'all' ||
+        activeFilters.taskId !== 'all' ||
+        activeFilters.actionType !== 'all' ||
+        activeFilters.dateRange !== 'all'
+      ))
     );
 
   const [openDropdown, setOpenDropdown] = useState(null); // 'user' | 'dept' | 'task' | 'action' | 'date'
@@ -160,8 +163,11 @@ export function ActivityToolbar({
           ) : null}
         </div>
 
-        {/* 2. User (Actor) Filter */}
-        <div className="relative">
+        {/* 2-6. Admin-Only Dropdown Filters */}
+        {isAdmin && (
+          <>
+            {/* 2. User (Actor) Filter */}
+            <div className="relative">
           <button
             type="button"
             onClick={() => toggleDropdown('user')}
@@ -444,99 +450,101 @@ export function ActivityToolbar({
             </div>
           )}
         </div>
-      </div>
+      </>
+    )}
+  </div>
 
-      {/* Active Filter Chips */}
-      {isFilterActive && (
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          {activeFilters.searchQuery && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
-              <span>Search: &ldquo;{activeFilters.searchQuery}&rdquo;</span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange('searchQuery', '')}
-                className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-
-          {activeFilters.employeeId !== 'all' && selectedActor && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
-              <span>User: {selectedActor.full_name}</span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange('employeeId', 'all')}
-                className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-
-          {activeFilters.departmentId !== 'all' && selectedDept && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
-              <span>Department: {selectedDept.name}</span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange('departmentId', 'all')}
-                className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-
-          {activeFilters.taskId !== 'all' && selectedTask && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
-              <span>Task: {selectedTask.task_number}</span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange('taskId', 'all')}
-                className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-
-          {activeFilters.actionType !== 'all' && selectedAction && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
-              <span>Action: {selectedAction.label}</span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange('actionType', 'all')}
-                className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-
-          {activeFilters.dateRange !== 'all' && selectedDate && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
-              <span>Date: {selectedDate.label}</span>
-              <button
-                type="button"
-                onClick={() => handleFilterChange('dateRange', 'all')}
-                className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-
+  {/* Active Filter Chips */}
+  {isFilterActive && (
+    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+      {activeFilters.searchQuery && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
+          <span>Search: &ldquo;{activeFilters.searchQuery}&rdquo;</span>
           <button
             type="button"
-            onClick={onResetFilters}
-            className="text-[11.5px] font-medium text-[#2563EB] hover:underline cursor-pointer ml-1"
+            onClick={() => handleFilterChange('searchQuery', '')}
+            className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
           >
-            Clear all
+            <X className="w-3 h-3" />
           </button>
-        </div>
+        </span>
       )}
+
+      {isAdmin && activeFilters.employeeId !== 'all' && selectedActor && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
+          <span>User: {selectedActor.full_name}</span>
+          <button
+            type="button"
+            onClick={() => handleFilterChange('employeeId', 'all')}
+            className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      )}
+
+      {isAdmin && activeFilters.departmentId !== 'all' && selectedDept && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
+          <span>Department: {selectedDept.name}</span>
+          <button
+            type="button"
+            onClick={() => handleFilterChange('departmentId', 'all')}
+            className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      )}
+
+      {isAdmin && activeFilters.taskId !== 'all' && selectedTask && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
+          <span>Task: {selectedTask.task_number}</span>
+          <button
+            type="button"
+            onClick={() => handleFilterChange('taskId', 'all')}
+            className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      )}
+
+      {isAdmin && activeFilters.actionType !== 'all' && selectedAction && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
+          <span>Action: {selectedAction.label}</span>
+          <button
+            type="button"
+            onClick={() => handleFilterChange('actionType', 'all')}
+            className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      )}
+
+      {isAdmin && activeFilters.dateRange !== 'all' && selectedDate && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] bg-[#F4F4F5] text-[11.5px] font-medium text-[#18181B] border border-[#E4E4E7]">
+          <span>Date: {selectedDate.label}</span>
+          <button
+            type="button"
+            onClick={() => handleFilterChange('dateRange', 'all')}
+            className="text-[#71717A] hover:text-[#18181B] cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      )}
+
+      <button
+        type="button"
+        onClick={onResetFilters}
+        className="text-[11.5px] font-medium text-[#2563EB] hover:underline cursor-pointer ml-1"
+      >
+        Clear all
+      </button>
     </div>
+  )}
+</div>
   );
 }
 

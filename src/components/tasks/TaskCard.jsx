@@ -9,6 +9,8 @@ import { useNavigate } from 'react-router-dom';
 
 import { cleanTaskDescription } from '../../contexts/AppDataContext';
 import { getTaskDepartmentsInfo, isDepartmentAssistantOnly } from '../../utils/taskDepartmentUtils';
+import { UnreadBadge } from '../common/UnreadBadge';
+import { getTaskUnreadCount } from '../../utils/comments/unreadCommentSelectors';
 
 export function TaskCard({ task, currentDeptId = null }) {
   const { departments, readChatIds = [] } = useAppData();
@@ -33,16 +35,10 @@ export function TaskCard({ task, currentDeptId = null }) {
   );
   const assistants = users.filter((u) => allAssistantIds.includes(u.id));
 
-  // Compute unread live chat count for current user
+  // Compute unread comment count for current user
   const unreadChatCount = useMemo(() => {
-    if (!task.task_updates || task.task_updates.length === 0) return 0;
-    return task.task_updates.filter((u) => {
-      if (u.user_id === currentUser?.id) return false;
-      const key1 = u.id;
-      const key2 = `${task.id}_${u.created_at}`;
-      return !readChatIds.includes(key1) && !readChatIds.includes(key2);
-    }).length;
-  }, [task.task_updates, task.id, currentUser?.id, readChatIds]);
+    return getTaskUnreadCount(task, currentUser?.id, readChatIds);
+  }, [task, currentUser?.id, readChatIds]);
 
   // Collect all unique departments (assigned + assistant departments)
   const departmentsInfo = useMemo(() => {
@@ -87,11 +83,11 @@ export function TaskCard({ task, currentDeptId = null }) {
           <div className="flex items-center gap-1.5">
             {unreadChatCount > 0 && (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-black rounded-full bg-red-600 text-white shadow-sm shadow-red-500/20 animate-in fade-in"
-                title={`${unreadChatCount} new live chat${unreadChatCount > 1 ? 's' : ''}`}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-bold rounded-full bg-[#2563EB] dark:bg-[#3B82F6] text-white shadow-xs"
+                title={`${unreadChatCount} unread comment${unreadChatCount > 1 ? 's' : ''}`}
               >
-                <MessageSquare className="w-3 h-3 fill-current" />
-                <span>{unreadChatCount > 9 ? '+9' : unreadChatCount}</span>
+                <MessageSquare className="w-3 h-3 fill-blue-50 dark:fill-blue-950/40" />
+                <span>{unreadChatCount > 9 ? '9+' : unreadChatCount}</span>
               </span>
             )}
 

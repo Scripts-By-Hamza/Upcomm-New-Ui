@@ -251,6 +251,7 @@ export function ActivityLogPage() {
         departments={authorizedDepartments}
         tasks={authorizedTasks}
         onResetFilters={handleResetFilters}
+        isAdmin={isAdmin}
       />
 
       {/* 3. Main Content View Area */}

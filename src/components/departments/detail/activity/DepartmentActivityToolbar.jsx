@@ -18,6 +18,7 @@ export function DepartmentActivityToolbar({
   hasActiveFilters,
   actors = [],
   tasks = [],
+  isAdmin = false,
 }) {
   const [openDropdown, setOpenDropdown] = useState(null); // 'employee' | 'task' | 'action' | 'date'
   const [taskSearch, setTaskSearch] = useState('');
@@ -85,6 +86,10 @@ export function DepartmentActivityToolbar({
 
   const selectedDateLabel =
     dateRangeOptions.find((o) => o.id === filters.dateRange)?.label || 'All Dates';
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <div

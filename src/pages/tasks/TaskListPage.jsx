@@ -27,8 +27,11 @@ import {
   getLockedFiltersForPage,
   saveLockedFiltersForPage,
   removeLockedFiltersForPage,
+  getPersistentUnreadFilter,
+  savePersistentUnreadFilter,
   DEFAULT_TASK_FILTERS,
 } from '../../utils/taskFilterStorage';
+import { getTaskUnreadCount } from '../../utils/comments/unreadCommentSelectors';
 
 export function TaskListPage({ filterType: propFilterType }) {
   const {
@@ -90,18 +93,32 @@ export function TaskListPage({ filterType: propFilterType }) {
 
   // Helper to determine route filter type
   const activeRouteType = useMemo(() => {
-    if (propFilterType) return propFilterType;
-    if (location.pathname.endsWith('/pending-in-progress')) return 'pending_in_progress';
-    if (location.pathname.endsWith('/assigned-by-admin')) return 'assigned_by_admin';
-    if (location.pathname.endsWith('/assigned-to-admin')) return 'assigned_to_admin';
-    if (location.pathname.endsWith('/assigned-by-others')) return 'assigned_by_others';
-    if (location.pathname.endsWith('/overdue')) return 'overdue';
-    if (location.pathname.endsWith('/completed')) return 'completed';
-    return 'all';
-  }, [propFilterType, location.pathname]);
+    let type = propFilterType;
+    if (!type) {
+      if (location.pathname.endsWith('/pending-in-progress')) type = 'pending_in_progress';
+      else if (location.pathname.endsWith('/assigned-by-admin')) type = 'assigned_by_admin';
+      else if (location.pathname.endsWith('/assigned-to-admin')) type = 'assigned_to_admin';
+      else if (location.pathname.endsWith('/assigned-by-others')) type = 'assigned_by_others';
+      else if (location.pathname.endsWith('/overdue')) type = 'overdue';
+      else if (location.pathname.endsWith('/completed')) type = 'completed';
+      else type = 'all';
+    }
+
+    // Role-dependent canonical mapping:
+    // Non-admins (HOD & Team Members) should always map assigned_by_admin/assigned_to_admin to 'assigned_to_admin'
+    if (!isAdmin && (type === 'assigned_by_admin' || type === 'assigned_to_admin')) {
+      return 'assigned_to_admin';
+    }
+    // Admins should always map assigned_to_admin/assigned_by_admin to 'assigned_by_admin'
+    if (isAdmin && (type === 'assigned_to_admin' || type === 'assigned_by_admin')) {
+      return 'assigned_by_admin';
+    }
+
+    return type;
+  }, [propFilterType, location.pathname, isAdmin]);
 
   const activeScope = searchParams.get('scope');
-  const isMyTasks = activeScope === 'my' || activeRouteType === 'assigned_to_admin';
+  const isMyTasks = activeScope === 'my';
 
   // Stable semantic page key for user-isolated persistent storage
   const pageKey = useMemo(() => {
@@ -158,8 +175,8 @@ export function TaskListPage({ filterType: propFilterType }) {
     : (isFiltersLocked ? (lockedFilters.due || 'all') : 'all');
 
   const unreadFilter = searchParams.has('unread')
-    ? searchParams.get('unread') === 'true'
-    : (isFiltersLocked ? Boolean(lockedFilters.unread) : false);
+    ? (searchParams.get('unread') === 'true' || searchParams.get('unread') === '1')
+    : getPersistentUnreadFilter({ userId: currentUserId, pageKey });
 
   const hideCompleted = searchParams.has('hide_completed')
     ? searchParams.get('hide_completed') === 'true'
@@ -267,7 +284,15 @@ export function TaskListPage({ filterType: propFilterType }) {
   const setSelectedAssignedBy = (val) => updateQueryParam('assigned_by', val);
   const setSelectedAssignedTo = (val) => updateQueryParam('assigned_to', val);
   const setSelectedDue = (val) => updateQueryParam('due', val);
-  const setUnreadFilter = (val) => updateQueryParam('unread', val);
+  const setUnreadFilter = (val) => {
+    const nextBool = Boolean(val);
+    savePersistentUnreadFilter({
+      userId: currentUserId,
+      pageKey,
+      isActive: nextBool,
+    });
+    updateQueryParam('unread', nextBool ? 'true' : false);
+  };
   const setHideCompleted = (val) => updateQueryParam('hide_completed', val);
   const setSelectedGroup = (val) => updateQueryParam('group', val, false);
   const setSelectedSort = (val) => updateQueryParam('sort', val, false);
@@ -390,6 +415,13 @@ export function TaskListPage({ filterType: propFilterType }) {
 
   // Clear all toolbar filters while keeping route and scope constraints
   const handleResetFilters = () => {
+    // Intentionally clear persistent unread filter state for this user/page
+    savePersistentUnreadFilter({
+      userId: currentUserId,
+      pageKey,
+      isActive: false,
+    });
+
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams();
@@ -428,7 +460,15 @@ export function TaskListPage({ filterType: propFilterType }) {
 
   const isAssignedByCurrentUser = (task) => {
     if (!currentUserId || !task) return false;
-    return task.created_by === currentUserId || task.assigned_by === currentUserId;
+    const creatorId =
+      typeof task.created_by === 'object' && task.created_by !== null
+        ? task.created_by.id
+        : task.created_by;
+    const assignerId =
+      typeof task.assigned_by === 'object' && task.assigned_by !== null
+        ? task.assigned_by.id
+        : task.assigned_by;
+    return creatorId === currentUserId || assignerId === currentUserId;
   };
 
   // 1. Role Scoping Pipeline (Unified RBAC)
@@ -440,13 +480,7 @@ export function TaskListPage({ filterType: propFilterType }) {
   // Calculate unread tasks count for the filter badge
   const unreadCount = useMemo(() => {
     return scopedTasks.filter((task) => {
-      const updates = task.task_updates || [];
-      return updates.some((u) => {
-        if (u.user_id === currentUserId) return false;
-        const isSeenInUpdate = Array.isArray(u.seen_by) && u.seen_by.includes(currentUserId);
-        const isReadInChat = readChatIds.includes(u.id);
-        return !isSeenInUpdate && !isReadInChat;
-      });
+      return getTaskUnreadCount(task, currentUserId, readChatIds) > 0;
     }).length;
   }, [scopedTasks, currentUserId, readChatIds]);
 
@@ -454,10 +488,19 @@ export function TaskListPage({ filterType: propFilterType }) {
   const routeFilteredTasks = useMemo(() => {
     let list = scopedTasks;
 
-    // Apply Personal Work Scope (scope=my / assigned_to_admin)
+    // Apply Personal Work Scope (scope=my)
     if (isMyTasks) {
       list = list.filter((task) => isTaskMyWork(task, currentUser));
     }
+
+    const adminUserIds = new Set(
+      (users || [])
+        .filter((u) => {
+          const r = (u.role || '').toLowerCase();
+          return r === 'admin' || r === 'it_support_admin';
+        })
+        .map((u) => u.id)
+    );
 
     return list.filter((task) => {
       if (activeRouteType === 'pending_in_progress') {
@@ -472,13 +515,20 @@ export function TaskListPage({ filterType: propFilterType }) {
       } else if (activeRouteType === 'assigned_by_admin') {
         if (!isAssignedByCurrentUser(task)) return false;
       } else if (activeRouteType === 'assigned_to_admin') {
-        if (!isTaskMyWork(task, currentUser)) return false;
+        // Strictly show tasks created by the user and assigned to an Admin
+        if (!isAssignedByCurrentUser(task)) return false;
+        const taskAssigneeIds = getTaskAssigneeIds(task);
+        const isAssignedToAdmin =
+          (task.assigned_to && adminUserIds.has(task.assigned_to)) ||
+          (task.assigned_to_id && adminUserIds.has(task.assigned_to_id)) ||
+          taskAssigneeIds.some((id) => adminUserIds.has(id));
+        if (!isAssignedToAdmin) return false;
       } else if (activeRouteType === 'assigned_by_others') {
         if (isAssignedByCurrentUser(task)) return false;
       }
       return true;
     });
-  }, [scopedTasks, isMyTasks, activeRouteType, completedSubFilter, currentUserId, currentUser]);
+  }, [scopedTasks, isMyTasks, activeRouteType, completedSubFilter, currentUserId, currentUser, users]);
 
   // 3. Search & Toolbar Filtering Pipeline
   const filteredTasks = useMemo(() => {
@@ -560,15 +610,9 @@ export function TaskListPage({ filterType: propFilterType }) {
         }
       }
 
-      // Unread Filter
+      // Unread Filter (Only show tasks where current user has at least one unread message/comment)
       if (unreadFilter) {
-        const updates = task.task_updates || [];
-        const hasUnread = updates.some((u) => {
-          if (u.user_id === currentUserId) return false;
-          const isSeenInUpdate = Array.isArray(u.seen_by) && u.seen_by.includes(currentUserId);
-          const isReadInChat = readChatIds.includes(u.id);
-          return !isSeenInUpdate && !isReadInChat;
-        });
+        const hasUnread = getTaskUnreadCount(task, currentUserId, readChatIds) > 0;
         if (!hasUnread) return false;
       }
 
@@ -708,6 +752,9 @@ export function TaskListPage({ filterType: propFilterType }) {
           case 'assigned-by-admin':
           case 'assigned_by_admin':
             return 'Assigned by Admin';
+          case 'assigned-to-admin':
+          case 'assigned_to_admin':
+            return 'Assigned to Admin';
           case 'assigned-by-others':
           case 'assigned_by_others':
             return 'Assigned By Others';
@@ -716,7 +763,11 @@ export function TaskListPage({ filterType: propFilterType }) {
         }
       })();
 
-  const pageSubtitle = isMyTasks ? 'Tasks assigned to you.' : undefined;
+  const pageSubtitle = isMyTasks
+    ? 'Tasks assigned to you.'
+    : activeRouteType === 'assigned_to_admin'
+    ? 'Tasks created by you and assigned to Admin.'
+    : undefined;
 
   const hasActiveFilters =
     search ||
@@ -738,6 +789,9 @@ export function TaskListPage({ filterType: propFilterType }) {
         userRole={role}
         activeView={activeView}
         onViewChange={setActiveView}
+        search={search}
+        onSearchChange={setSearch}
+        isMyTasks={isMyTasks}
       />
 
       {/* 2. Completed Sub-filter Tabs (on /tasks/completed - Admin Only) */}
@@ -853,6 +907,8 @@ export function TaskListPage({ filterType: propFilterType }) {
           onDirectDelete={handleDirectDelete}
           onOpenTask={handleOpenTask}
           onEditTask={handleOpenEdit}
+          unreadFilter={unreadFilter}
+          onClearUnread={() => setUnreadFilter(false)}
         />
       ) : isMyTasks ? (
         <MyTasksPlannerList
@@ -876,6 +932,8 @@ export function TaskListPage({ filterType: propFilterType }) {
           onResetFilters={handleResetFilters}
           onOpenTask={handleOpenTask}
           onEditTask={handleOpenEdit}
+          unreadFilter={unreadFilter}
+          onClearUnread={() => setUnreadFilter(false)}
         />
       ) : (
         <div>
@@ -897,6 +955,8 @@ export function TaskListPage({ filterType: propFilterType }) {
             onResetFilters={handleResetFilters}
             onOpenTask={handleOpenTask}
             onEditTask={handleOpenEdit}
+            unreadFilter={unreadFilter}
+            onClearUnread={() => setUnreadFilter(false)}
           />
 
           {/* 6. Pagination Footer (All Tasks List View only) */}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { TaskListRow } from './TaskListRow';
 import { TaskMobileRow } from './TaskMobileRow';
-import { ListTodo, Search, RotateCcw } from 'lucide-react';
+import { ListTodo, Search, RotateCcw, MessageSquare } from 'lucide-react';
 import { getTaskDepartmentsInfo } from '../../utils/taskDepartmentUtils';
 
 export function TaskListTable({
@@ -22,22 +22,49 @@ export function TaskListTable({
   onResetFilters,
   onOpenTask,
   onEditTask,
+  unreadFilter = false,
+  onClearUnread,
 }) {
   // Empty State Rendering
   if (tasks.length === 0) {
+    if (unreadFilter) {
+      return (
+        <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-12 text-center select-none shadow-none space-y-2.5 dark:bg-[#18181B] dark:border-[#27272A]">
+          <div className="w-12 h-12 rounded-full bg-[#ECFDF5] flex items-center justify-center mx-auto text-[#059669] dark:bg-[#064E3B]/30 dark:text-[#34D399]">
+            <MessageSquare className="w-5 h-5" />
+          </div>
+          <h3 className="text-[15px] font-bold text-[#18181B] dark:text-[#F4F4F5]">
+            No unread messages
+          </h3>
+          <p className="text-[13px] text-[#71717A] max-w-sm mx-auto dark:text-[#A1A1AA]">
+            You're all caught up on task conversations.
+          </p>
+          {(onClearUnread || onResetFilters) && (
+            <button
+              type="button"
+              onClick={onClearUnread || onResetFilters}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#059669] text-[12.5px] font-semibold rounded-[7px] transition-colors cursor-pointer mt-2 dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399] dark:hover:bg-[#064E3B]/50"
+            >
+              <span>Show all tasks</span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
     return (
-      <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-12 text-center select-none shadow-none space-y-2.5">
-        <div className="w-12 h-12 rounded-full bg-[#F4F4F5] flex items-center justify-center mx-auto text-[#71717A]">
+      <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-12 text-center select-none shadow-none space-y-2.5 dark:bg-[#18181B] dark:border-[#27272A]">
+        <div className="w-12 h-12 rounded-full bg-[#F4F4F5] flex items-center justify-center mx-auto text-[#71717A] dark:bg-[#27272A] dark:text-[#A1A1AA]">
           {hasActiveFilters ? (
             <Search className="w-5 h-5" />
           ) : (
             <ListTodo className="w-5 h-5 text-[#059669]" />
           )}
         </div>
-        <h3 className="text-[15px] font-bold text-[#18181B]">
+        <h3 className="text-[15px] font-bold text-[#18181B] dark:text-[#F4F4F5]">
           {hasActiveFilters ? 'No matching tasks' : 'No tasks found'}
         </h3>
-        <p className="text-[13px] text-[#71717A] max-w-sm mx-auto">
+        <p className="text-[13px] text-[#71717A] max-w-sm mx-auto dark:text-[#A1A1AA]">
           {hasActiveFilters
             ? 'No tasks match your current filter and search criteria. Try adjusting or clearing your filters.'
             : 'There are no deliverables currently available in this workspace.'}
@@ -46,9 +73,9 @@ export function TaskListTable({
           <button
             type="button"
             onClick={onResetFilters}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#F4F4F5] hover:bg-[#E4E4E7] text-[#18181B] text-[12.5px] font-medium rounded-[7px] transition-colors cursor-pointer mt-2"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#F4F4F5] hover:bg-[#E4E4E7] text-[#18181B] text-[12.5px] font-medium rounded-[7px] transition-colors cursor-pointer mt-2 dark:bg-[#27272A] dark:hover:bg-[#3F3F46] dark:text-[#F4F4F5]"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-[#71717A]" />
+            <RotateCcw className="w-3.5 h-3.5 text-[#71717A] dark:text-[#A1A1AA]" />
             <span>Clear Filters</span>
           </button>
         )}

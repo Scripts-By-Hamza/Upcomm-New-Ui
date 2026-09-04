@@ -20,6 +20,8 @@ import {
 } from '../../utils/taskDepartmentUtils';
 import { getTaskPermissions } from '../../utils/taskPermissions';
 import { isTaskOverdue } from '../../utils/dateUtils';
+import { UnreadBadge } from '../common/UnreadBadge';
+import { getTaskUnreadCount } from '../../utils/comments/unreadCommentSelectors';
 
 export function TaskBoardCard({
   task,
@@ -128,18 +130,10 @@ export function TaskBoardCard({
 
   // Activity counts
   const updates = task.task_updates || [];
-  const messageCount = updates.filter((u) => Boolean(u.text && u.text.trim())).length;
+  const unreadCommentCount = getTaskUnreadCount(task, currentUser?.id, readChatIds);
   const attachmentCount =
     (task.attachments?.length || 0) +
     updates.reduce((acc, u) => acc + (u.attachments?.length || 0), 0);
-
-  // Unread messages check
-  const hasUnread = updates.some((u) => {
-    if (u.user_id === currentUser?.id) return false;
-    const isSeenInUpdate = Array.isArray(u.seen_by) && u.seen_by.includes(currentUser?.id);
-    const isReadInChat = readChatIds.includes(u.id);
-    return !isSeenInUpdate && !isReadInChat;
-  });
 
   const getPriorityInfo = (priority) => {
     switch (priority?.toLowerCase()) {
@@ -386,16 +380,14 @@ export function TaskBoardCard({
 
         {/* Message & Attachment Counts */}
         <div className="flex items-center gap-2.5 text-[#71717A] text-[11px] flex-shrink-0">
-          {messageCount > 0 && (
+          {unreadCommentCount > 0 && (
             <div
-              className="flex items-center gap-1 relative"
-              title={`${messageCount} comments / updates`}
+              className="flex items-center gap-1 text-[#2563EB] dark:text-[#3B82F6] font-medium"
+              title={`${unreadCommentCount} unread comment${unreadCommentCount === 1 ? '' : 's'}`}
+              aria-label={`Open ${unreadCommentCount} unread comment${unreadCommentCount === 1 ? '' : 's'}`}
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>{messageCount}</span>
-              {hasUnread && (
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 absolute -top-0.5 -right-1" />
-              )}
+              <MessageSquare className="w-3.5 h-3.5 fill-blue-50 dark:fill-blue-950/40" />
+              <UnreadBadge count={unreadCommentCount} size="sm" />
             </div>
           )}
 

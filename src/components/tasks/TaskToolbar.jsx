@@ -13,6 +13,7 @@ import {
   Check,
   Lock,
   Unlock,
+  MessageSquare,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Avatar } from '../common/Avatar';
@@ -230,11 +231,46 @@ export function TaskToolbar({
 
   const selectedAssignedByObj = users.find((u) => u.id === selectedAssignedBy);
 
-  // Common Filter Buttons Group (Filter, Assignee, Department, Due Date)
+  // Unread Messages Toggle Button (First-Class Attention Mode Filter)
+  const renderUnreadMessagesButton = () => (
+    <button
+      type="button"
+      onClick={() => onUnreadFilterChange?.(!unreadFilter)}
+      aria-pressed={unreadFilter ? 'true' : 'false'}
+      aria-label="Show tasks with unread messages only"
+      title={
+        unreadFilter
+          ? 'Showing tasks with unread messages. Click to show all.'
+          : 'Show tasks with unread messages'
+      }
+      className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer select-none shadow-2xs ${
+        unreadFilter
+          ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold hover:bg-[#D1FAE5] dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399] dark:hover:bg-[#064E3B]/50'
+          : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B] dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5] dark:hover:bg-[#27272A]'
+      }`}
+    >
+      <MessageSquare
+        className={`w-3.5 h-3.5 ${
+          unreadFilter
+            ? 'text-[#059669] dark:text-[#34D399]'
+            : 'text-[#71717A] dark:text-[#A1A1AA]'
+        }`}
+      />
+      <span>Unread Messages</span>
+      {unreadFilter && (
+        <Check className="w-3.5 h-3.5 text-[#059669] dark:text-[#34D399]" />
+      )}
+    </button>
+  );
+
+  // Common Filter Buttons Group (Unread Messages, Assignee, Department, Due Date)
   const renderFilterButtons = (isCalendarMode = false) => {
     if (isMyTasks) {
       return (
         <>
+          {/* Unread Messages Toggle Button */}
+          {renderUnreadMessagesButton()}
+
           {/* Status Dropdown */}
           <div className="relative">
             <button
@@ -509,6 +545,9 @@ export function TaskToolbar({
 
     return (
       <>
+        {/* Unread Messages Toggle Button */}
+        {renderUnreadMessagesButton()}
+
         {/* Assignee Dropdown (Multi-Select with Search) - Admin Only */}
         {!isMyTasks && isAdmin && (
           <div className="relative">
@@ -841,27 +880,6 @@ export function TaskToolbar({
         <>
           {/* Left Filters Group */}
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            {/* Search Tasks input */}
-            <div className="relative min-w-[200px] sm:w-60">
-              <Search className="w-3.5 h-3.5 text-[#8B8B95] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder={isMyTasks ? 'Search my tasks' : 'Search tasks...'}
-                className="w-full pl-8 pr-7 h-9 bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669] rounded-[8px] text-[12.5px] text-[#18181B] placeholder:text-[#8B8B95] transition-all outline-none dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5] dark:placeholder:text-[#71717A]"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => onSearchChange('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8B8B95] hover:text-[#18181B] p-0.5"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-
             {renderFilterButtons(false)}
           </div>
 

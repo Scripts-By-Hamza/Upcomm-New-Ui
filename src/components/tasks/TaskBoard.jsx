@@ -13,7 +13,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { TaskBoardColumn } from './TaskBoardColumn';
 import { TaskBoardCard } from './TaskBoardCard';
 import { getTaskPermissions } from '../../utils/taskPermissions';
-import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, X, MessageSquare } from 'lucide-react';
 
 const COLUMNS = [
   { id: 'pending', title: 'Pending' },
@@ -34,6 +34,8 @@ export function TaskBoard({
   onDirectDelete,
   onOpenTask,
   onEditTask,
+  unreadFilter = false,
+  onClearUnread,
 }) {
   const [activeTask, setActiveTask] = useState(null);
   const [mobileActiveTab, setMobileActiveTab] = useState('pending');
@@ -250,15 +252,38 @@ export function TaskBoard({
         })}
       </div>
 
-      {/* Main Kanban Board with DndContext */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        {/* Desktop 3-Column Grid */}
-        <div className="hidden md:grid md:grid-cols-3 gap-3.5 lg:gap-4 items-start">
+      {/* Unread Empty State or Main Kanban Board */}
+      {unreadFilter && tasks.length === 0 ? (
+        <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-12 text-center select-none shadow-none space-y-2.5 dark:bg-[#18181B] dark:border-[#27272A]">
+          <div className="w-12 h-12 rounded-full bg-[#ECFDF5] flex items-center justify-center mx-auto text-[#059669] dark:bg-[#064E3B]/30 dark:text-[#34D399]">
+            <MessageSquare className="w-5 h-5" />
+          </div>
+          <h3 className="text-[15px] font-bold text-[#18181B] dark:text-[#F4F4F5]">
+            No unread messages
+          </h3>
+          <p className="text-[13px] text-[#71717A] max-w-sm mx-auto dark:text-[#A1A1AA]">
+            You're all caught up on task conversations.
+          </p>
+          {onClearUnread && (
+            <button
+              type="button"
+              onClick={onClearUnread}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#059669] text-[12.5px] font-semibold rounded-[7px] transition-colors cursor-pointer mt-2 dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399] dark:hover:bg-[#064E3B]/50"
+            >
+              <span>Show all tasks</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        /* Main Kanban Board with DndContext */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          {/* Desktop 3-Column Grid */}
+          <div className="hidden md:grid md:grid-cols-3 gap-3.5 lg:gap-4 items-start">
           {COLUMNS.map((col) => (
             <TaskBoardColumn
               key={col.id}
@@ -312,8 +337,9 @@ export function TaskBoard({
               isOverlay
             />
           ) : null}
-        </DragOverlay>
-      </DndContext>
+          </DragOverlay>
+        </DndContext>
+      )}
     </div>
   );
 }

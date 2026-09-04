@@ -17,6 +17,8 @@ import {
 } from '../../utils/taskDepartmentUtils';
 import { getTaskPermissions } from '../../utils/taskPermissions';
 import { isTaskOverdue } from '../../utils/dateUtils';
+import { UnreadBadge } from '../common/UnreadBadge';
+import { getTaskUnreadCount } from '../../utils/comments/unreadCommentSelectors';
 
 export function TaskMobileRow({
   task,
@@ -69,15 +71,8 @@ export function TaskMobileRow({
   })();
 
   const updates = task.task_updates || [];
-  const messageCount = updates.filter((u) => Boolean(u.text && u.text.trim())).length;
+  const unreadCommentCount = getTaskUnreadCount(task, currentUser?.id, readChatIds);
   const attachmentCount = task.attachments?.length || 0;
-
-  const hasUnread = updates.some((u) => {
-    if (u.user_id === currentUser?.id) return false;
-    const isSeenInUpdate = Array.isArray(u.seen_by) && u.seen_by.includes(currentUser?.id);
-    const isReadInChat = readChatIds.includes(u.id);
-    return !isSeenInUpdate && !isReadInChat;
-  });
 
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
@@ -180,13 +175,19 @@ export function TaskMobileRow({
       {/* Line 3: Activity & More Menu */}
       <div className="flex items-center justify-between pt-1 border-t border-[#F4F4F5]">
         <div className="flex items-center gap-3 text-[11px] text-[#71717A]">
-          {messageCount > 0 && (
-            <div className="flex items-center gap-1 relative">
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>{messageCount}</span>
-              {hasUnread && (
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 absolute -top-0.5 -right-1" />
-              )}
+          {unreadCommentCount > 0 && (
+            <div
+              className="flex items-center gap-1 text-[#2563EB] dark:text-[#3B82F6] font-medium cursor-pointer"
+              title={`${unreadCommentCount} unread comment${unreadCommentCount === 1 ? '' : 's'}`}
+              aria-label={`Open ${unreadCommentCount} unread comment${unreadCommentCount === 1 ? '' : 's'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onTaskClick) onTaskClick(task);
+                else navigate(`/tasks/${task.id}`);
+              }}
+            >
+              <MessageSquare className="w-3.5 h-3.5 fill-blue-50 dark:fill-blue-950/40" />
+              <UnreadBadge count={unreadCommentCount} size="sm" />
             </div>
           )}
 
