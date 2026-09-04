@@ -740,8 +740,8 @@ export function TaskListPage({ filterType: propFilterType }) {
         onViewChange={setActiveView}
       />
 
-      {/* 2. Completed Sub-filter Tabs (on /tasks/completed) */}
-      {!isMyTasks && activeRouteType === 'completed' && (
+      {/* 2. Completed Sub-filter Tabs (on /tasks/completed - Admin Only) */}
+      {!isMyTasks && isAdmin && activeRouteType === 'completed' && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 select-none">
           {[
             { id: 'all', label: 'All Completed' },

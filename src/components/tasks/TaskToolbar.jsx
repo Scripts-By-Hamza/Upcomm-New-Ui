@@ -58,6 +58,7 @@ export function TaskToolbar({
   // Dropdown states for each toolbar popover
   const [openDropdown, setOpenDropdown] = useState(null); // 'dept' | 'due' | 'group' | 'customize' | 'assignee' | 'status' | 'assignedBy'
   const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
+  const [assignedBySearchQuery, setAssignedBySearchQuery] = useState('');
   const toolbarRef = useRef(null);
 
   useEffect(() => {
@@ -159,6 +160,43 @@ export function TaskToolbar({
       return matchName || matchEmail || matchDept || matchRole;
     });
   }, [activeUsersList, assigneeSearchQuery, deptMap]);
+
+  // HODs & Admins list for Assigned By filter
+  const hodAndAdminUsersList = React.useMemo(() => {
+    return (users || [])
+      .filter(
+        (u) =>
+          u &&
+          !u.is_system_account &&
+          !u.exclude_from_directory &&
+          (u.role === 'hod' || u.role === 'admin' || u.role === 'it_support_admin')
+      )
+      .sort((a, b) => {
+        if (a.role === 'hod' && b.role !== 'hod') return -1;
+        if (a.role !== 'hod' && b.role === 'hod') return 1;
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      });
+  }, [users]);
+
+  const filteredAssignedByUsers = React.useMemo(() => {
+    if (!assignedBySearchQuery.trim()) return hodAndAdminUsersList;
+    const q = assignedBySearchQuery.toLowerCase().trim();
+    const searchPool = (users || []).filter(
+      (u) =>
+        u &&
+        !u.is_system_account &&
+        !u.exclude_from_directory &&
+        u.role !== 'it_support'
+    );
+    return searchPool.filter((u) => {
+      const matchName = u.full_name?.toLowerCase().includes(q);
+      const matchEmail = u.email?.toLowerCase().includes(q);
+      const dept = deptMap[u.department_id];
+      const matchDept = dept?.name?.toLowerCase().includes(q);
+      const matchRole = u.role?.toLowerCase().includes(q);
+      return matchName || matchEmail || matchDept || matchRole;
+    });
+  }, [hodAndAdminUsersList, users, assignedBySearchQuery, deptMap]);
 
   const selectedAssigneeIds = React.useMemo(() => {
     if (!selectedAssignedTo || selectedAssignedTo === 'all') return [];
@@ -331,7 +369,7 @@ export function TaskToolbar({
             </div>
           )}
 
-          {/* Assigned By Dropdown */}
+          {/* Assigned By Dropdown (Top Search Bar + Department HODs list) */}
           <div className="relative">
             <button
               type="button"
@@ -345,7 +383,7 @@ export function TaskToolbar({
               }`}
             >
               <UserRound className="w-3.5 h-3.5 text-[#71717A]" />
-              <span className="truncate max-w-[110px]">
+              <span className="truncate max-w-[120px]">
                 {selectedAssignedByObj
                   ? selectedAssignedByObj.full_name?.split(' ')[0]
                   : 'Assigned By'}
@@ -354,17 +392,114 @@ export function TaskToolbar({
             </button>
 
             {openDropdown === 'assignedBy' && (
-              <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-64 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in">
-                <MemberSearchFilter
-                  label="Assigned By"
-                  value={selectedAssignedBy}
-                  onChange={(val) => {
-                    onAssignedByChange(val);
+              <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-72 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in space-y-1.5">
+                {/* Top Search Input Box */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-[#8B8B95] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={assignedBySearchQuery}
+                    onChange={(e) => setAssignedBySearchQuery(e.target.value)}
+                    placeholder="Search HODs by name or dept..."
+                    className="w-full pl-8 pr-7 py-1.5 text-[12px] bg-[#F8F9FA] border border-[#E5E7EB] rounded-[6px] focus:outline-none focus:border-[#059669] focus:bg-white text-[#18181B] placeholder:text-[#8B8B95]"
+                    autoFocus
+                  />
+                  {assignedBySearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setAssignedBySearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8B8B95] hover:text-[#18181B] p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* All Assigned By (Reset) Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAssignedByChange('all');
                     setOpenDropdown(null);
+                    setAssignedBySearchQuery('');
                   }}
-                  users={users}
-                  departments={departments}
-                />
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer transition-colors ${
+                    selectedAssignedBy === 'all'
+                      ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
+                      : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
+                  }`}
+                >
+                  <span>All (Anyone)</span>
+                  {selectedAssignedBy === 'all' && <Check className="w-3.5 h-3.5" />}
+                </button>
+
+                {/* Section Header: Department HODs */}
+                <div className="px-2 pt-1 text-[10px] font-semibold text-[#8B8B95] uppercase tracking-wider">
+                  Department HODs & Management
+                </div>
+
+                {/* HODs / Admins List */}
+                <div className="max-h-56 overflow-y-auto space-y-0.5 pt-0.5 border-t border-[#F4F4F5]">
+                  {filteredAssignedByUsers.length === 0 ? (
+                    <div className="py-3 text-center text-[11.5px] text-[#8B8B95]">
+                      No HODs found
+                    </div>
+                  ) : (
+                    filteredAssignedByUsers.map((u) => {
+                      const isSelected = selectedAssignedBy === u.id;
+                      const uDept = deptMap[u.department_id];
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => {
+                            onAssignedByChange(u.id);
+                            setOpenDropdown(null);
+                            setAssignedBySearchQuery('');
+                          }}
+                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded-[6px] cursor-pointer transition-colors text-left select-none ${
+                            isSelected
+                              ? 'bg-[#ECFDF5] text-[#059669]'
+                              : 'hover:bg-[#F5F6F8] text-[#18181B]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <Avatar
+                              src={u.avatar_url}
+                              name={u.full_name}
+                              size="xs"
+                              className="flex-shrink-0"
+                            />
+                            <div className="min-w-0 flex-1 truncate">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[12px] font-medium truncate block">
+                                  {u.full_name}
+                                </span>
+                                <span
+                                  className={`text-[9.5px] px-1 py-0.2 rounded font-semibold uppercase tracking-wider ${
+                                    u.role === 'hod'
+                                      ? 'bg-blue-50 text-blue-700'
+                                      : 'bg-emerald-50 text-emerald-700'
+                                  }`}
+                                >
+                                  {u.role === 'hod' ? 'HOD' : 'Admin'}
+                                </span>
+                              </div>
+                              {uDept && (
+                                <span className="text-[10.5px] text-[#71717A] truncate block">
+                                  {uDept.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-3.5 h-3.5 text-[#059669] flex-shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -374,82 +509,170 @@ export function TaskToolbar({
 
     return (
       <>
-        {/* Assignee Dropdown (Multi-Select with Search) */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => toggleDropdown('assignee')}
-            className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
-              selectedAssigneeIds.length > 0
-                ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
-                : openDropdown === 'assignee'
-                ? 'bg-white border-[#059669] text-[#18181B]'
-                : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B]'
-            }`}
-          >
-            <UserRound className="w-3.5 h-3.5 text-[#71717A]" />
-            <span className="truncate max-w-[120px]">
-              {selectedAssigneeIds.length === 0
-                ? 'Assignee'
-                : selectedAssigneeIds.length === 1
-                ? users.find((u) => u.id === selectedAssigneeIds[0])?.full_name?.split(' ')[0] || '1 Assignee'
-                : `${users.find((u) => u.id === selectedAssigneeIds[0])?.full_name?.split(' ')[0] || 'User'} +${selectedAssigneeIds.length - 1}`}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
-          </button>
+        {/* Assignee Dropdown (Multi-Select with Search) - Admin Only */}
+        {!isMyTasks && isAdmin && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => toggleDropdown('assignee')}
+              className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+                selectedAssigneeIds.length > 0
+                  ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
+                  : openDropdown === 'assignee'
+                  ? 'bg-white border-[#059669] text-[#18181B]'
+                  : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B]'
+              }`}
+            >
+              <UserRound className="w-3.5 h-3.5 text-[#71717A]" />
+              <span className="truncate max-w-[120px]">
+                {selectedAssigneeIds.length === 0
+                  ? 'Assignee'
+                  : selectedAssigneeIds.length === 1
+                  ? users.find((u) => u.id === selectedAssigneeIds[0])?.full_name?.split(' ')[0] || '1 Assignee'
+                  : `${users.find((u) => u.id === selectedAssigneeIds[0])?.full_name?.split(' ')[0] || 'User'} +${selectedAssigneeIds.length - 1}`}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
+            </button>
 
-          {openDropdown === 'assignee' && (
-            <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-72 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in space-y-1.5">
-              {/* Top Search Input Box */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-[#8B8B95] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={assigneeSearchQuery}
-                  onChange={(e) => setAssigneeSearchQuery(e.target.value)}
-                  placeholder="Search users by name or dept..."
-                  className="w-full pl-8 pr-7 py-1.5 text-[12px] bg-[#F8F9FA] border border-[#E5E7EB] rounded-[6px] focus:outline-none focus:border-[#059669] focus:bg-white text-[#18181B] placeholder:text-[#8B8B95]"
-                  autoFocus
-                />
-                {assigneeSearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setAssigneeSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8B8B95] hover:text-[#18181B] p-0.5"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
+            {openDropdown === 'assignee' && (
+              <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-72 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in space-y-1.5">
+                {/* Top Search Input Box */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-[#8B8B95] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={assigneeSearchQuery}
+                    onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                    placeholder="Search users by name or dept..."
+                    className="w-full pl-8 pr-7 py-1.5 text-[12px] bg-[#F8F9FA] border border-[#E5E7EB] rounded-[6px] focus:outline-none focus:border-[#059669] focus:bg-white text-[#18181B] placeholder:text-[#8B8B95]"
+                    autoFocus
+                  />
+                  {assigneeSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setAssigneeSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8B8B95] hover:text-[#18181B] p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* All Assignees (Reset) Button */}
+                <button
+                  type="button"
+                  onClick={() => onAssignedToChange('all')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer transition-colors ${
+                    selectedAssigneeIds.length === 0
+                      ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
+                      : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
+                  }`}
+                >
+                  <span>All Assignees</span>
+                  {selectedAssigneeIds.length === 0 && <Check className="w-3.5 h-3.5" />}
+                </button>
+
+                {/* User List with Checkboxes */}
+                <div className="max-h-56 overflow-y-auto space-y-0.5 pt-0.5 border-t border-[#F4F4F5]">
+                  {filteredAssigneeUsers.length === 0 ? (
+                    <div className="py-3 text-center text-[11.5px] text-[#8B8B95]">
+                      No users found
+                    </div>
+                  ) : (
+                    filteredAssigneeUsers.map((u) => {
+                      const isChecked = selectedAssigneeIds.includes(u.id);
+                      const uDept = deptMap[u.department_id];
+                      return (
+                        <div
+                          key={u.id}
+                          onClick={() => handleToggleAssignee(u.id)}
+                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded-[6px] cursor-pointer transition-colors text-left select-none ${
+                            isChecked
+                              ? 'bg-[#ECFDF5] text-[#059669]'
+                              : 'hover:bg-[#F5F6F8] text-[#18181B]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}} // handled by parent div click
+                              className="rounded border-[#D4D4D8] text-[#059669] focus:ring-0 cursor-pointer w-3.5 h-3.5 flex-shrink-0"
+                            />
+                            <Avatar
+                              src={u.avatar_url}
+                              name={u.full_name}
+                              size="xs"
+                              className="flex-shrink-0"
+                            />
+                            <div className="min-w-0 flex-1 truncate">
+                              <span className="text-[12px] font-medium truncate block">
+                                {u.full_name}
+                              </span>
+                              {uDept && (
+                                <span className="text-[10.5px] text-[#71717A] truncate block">
+                                  {uDept.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
+            )}
+          </div>
+        )}
 
-              {/* All Assignees (Reset) Button */}
-              <button
-                type="button"
-                onClick={() => onAssignedToChange('all')}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer transition-colors ${
-                  selectedAssigneeIds.length === 0
-                    ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
-                    : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
-                }`}
-              >
-                <span>All Assignees</span>
-                {selectedAssigneeIds.length === 0 && <Check className="w-3.5 h-3.5" />}
-              </button>
+        {/* Department Dropdown (Multi-Select with Checkboxes) - Admin Only */}
+        {!isMyTasks && isAdmin && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => toggleDropdown('dept')}
+              className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+                selectedDeptIds.length > 0
+                  ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
+                  : openDropdown === 'dept'
+                  ? 'bg-white border-[#059669] text-[#18181B]'
+                  : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B]'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-[#71717A]" />
+              <span className="truncate max-w-[120px]">
+                {selectedDeptIds.length === 0
+                  ? 'Department'
+                  : selectedDeptIds.length === 1
+                  ? departments.find((d) => d.id === selectedDeptIds[0])?.name || '1 Dept'
+                  : `${departments.find((d) => d.id === selectedDeptIds[0])?.name || 'Dept'} +${selectedDeptIds.length - 1}`}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
+            </button>
 
-              {/* User List with Checkboxes */}
-              <div className="max-h-56 overflow-y-auto space-y-0.5 pt-0.5 border-t border-[#F4F4F5]">
-                {filteredAssigneeUsers.length === 0 ? (
-                  <div className="py-3 text-center text-[11.5px] text-[#8B8B95]">
-                    No users found
-                  </div>
-                ) : (
-                  filteredAssigneeUsers.map((u) => {
-                    const isChecked = selectedAssigneeIds.includes(u.id);
-                    const uDept = deptMap[u.department_id];
+            {openDropdown === 'dept' && (
+              <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-60 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in space-y-1">
+                <button
+                  type="button"
+                  onClick={() => onDeptChange('all')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer transition-colors ${
+                    selectedDeptIds.length === 0
+                      ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
+                      : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
+                  }`}
+                >
+                  <span>All Departments</span>
+                  {selectedDeptIds.length === 0 && <Check className="w-3.5 h-3.5" />}
+                </button>
+
+                <div className="max-h-60 overflow-y-auto space-y-0.5 pt-1 border-t border-[#F4F4F5]">
+                  {departments.map((d) => {
+                    const isChecked = selectedDeptIds.includes(d.id);
                     return (
                       <div
-                        key={u.id}
-                        onClick={() => handleToggleAssignee(u.id)}
+                        key={d.id}
+                        onClick={() => handleToggleDept(d.id)}
                         className={`w-full flex items-center justify-between px-2 py-1.5 rounded-[6px] cursor-pointer transition-colors text-left select-none ${
                           isChecked
                             ? 'bg-[#ECFDF5] text-[#059669]'
@@ -463,106 +686,22 @@ export function TaskToolbar({
                             onChange={() => {}} // handled by parent div click
                             className="rounded border-[#D4D4D8] text-[#059669] focus:ring-0 cursor-pointer w-3.5 h-3.5 flex-shrink-0"
                           />
-                          <Avatar
-                            src={u.avatar_url}
-                            name={u.full_name}
-                            size="xs"
-                            className="flex-shrink-0"
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: d.color || '#10B981' }}
                           />
-                          <div className="min-w-0 flex-1 truncate">
-                            <span className="text-[12px] font-medium truncate block">
-                              {u.full_name}
-                            </span>
-                            {uDept && (
-                              <span className="text-[10.5px] text-[#71717A] truncate block">
-                                {uDept.name}
-                              </span>
-                            )}
-                          </div>
+                          <span className="text-[12px] font-medium truncate">
+                            {d.name}
+                          </span>
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Department Dropdown (Multi-Select with Checkboxes) */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => toggleDropdown('dept')}
-            className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
-              selectedDeptIds.length > 0
-                ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold'
-                : openDropdown === 'dept'
-                ? 'bg-white border-[#059669] text-[#18181B]'
-                : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B]'
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5 text-[#71717A]" />
-            <span className="truncate max-w-[120px]">
-              {selectedDeptIds.length === 0
-                ? 'Department'
-                : selectedDeptIds.length === 1
-                ? departments.find((d) => d.id === selectedDeptIds[0])?.name || '1 Dept'
-                : `${departments.find((d) => d.id === selectedDeptIds[0])?.name || 'Dept'} +${selectedDeptIds.length - 1}`}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
-          </button>
-
-          {openDropdown === 'dept' && (
-            <div className="absolute right-0 lg:left-0 top-full mt-1.5 w-60 bg-white rounded-[10px] border border-[#E5E7EB] shadow-xl p-2 z-50 animate-fade-in space-y-1">
-              <button
-                type="button"
-                onClick={() => onDeptChange('all')}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer transition-colors ${
-                  selectedDeptIds.length === 0
-                    ? 'bg-[#ECFDF5] text-[#059669] font-semibold'
-                    : 'text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B]'
-                }`}
-              >
-                <span>All Departments</span>
-                {selectedDeptIds.length === 0 && <Check className="w-3.5 h-3.5" />}
-              </button>
-
-              <div className="max-h-60 overflow-y-auto space-y-0.5 pt-1 border-t border-[#F4F4F5]">
-                {departments.map((d) => {
-                  const isChecked = selectedDeptIds.includes(d.id);
-                  return (
-                    <div
-                      key={d.id}
-                      onClick={() => handleToggleDept(d.id)}
-                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-[6px] cursor-pointer transition-colors text-left select-none ${
-                        isChecked
-                          ? 'bg-[#ECFDF5] text-[#059669]'
-                          : 'hover:bg-[#F5F6F8] text-[#18181B]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {}} // handled by parent div click
-                          className="rounded border-[#D4D4D8] text-[#059669] focus:ring-0 cursor-pointer w-3.5 h-3.5 flex-shrink-0"
-                        />
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: d.color || '#10B981' }}
-                        />
-                        <span className="text-[12px] font-medium truncate">
-                          {d.name}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Due Date Dropdown (List/Board view only) */}
         {!isCalendarMode && (
@@ -667,8 +806,8 @@ export function TaskToolbar({
           {/* Right: Filters on Calendar View */}
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {renderFilterButtons(true)}
-            {/* Lock Filter Button (Calendar View) */}
-            {!isMyTasks && (
+            {/* Lock Filter Button (Calendar View) - Admin Only */}
+            {!isMyTasks && isAdmin && (
               <button
                 type="button"
                 onClick={onToggleLockFilters}
@@ -816,8 +955,8 @@ export function TaskToolbar({
               </div>
             )}
 
-            {/* Lock Filter Button */}
-            {!isMyTasks && (
+            {/* Lock Filter Button - Admin Only */}
+            {!isMyTasks && isAdmin && (
               <button
                 type="button"
                 onClick={onToggleLockFilters}
