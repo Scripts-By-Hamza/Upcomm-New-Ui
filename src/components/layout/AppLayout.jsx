@@ -1,0 +1,137 @@
+import React, { useState, useEffect } from 'react';
+import { Sidebar } from './Sidebar';
+import { Header } from './Header';
+import { MobileDrawer } from './MobileDrawer';
+import { ChangePasswordAlert } from '../auth/ChangePasswordAlert';
+import { Outlet } from 'react-router-dom';
+import { CommandPalette } from '../command/CommandPalette';
+import { TaskDetailDrawer } from '../tasks/detail/TaskDetailDrawer';
+import { EditTaskDrawer } from '../tasks/edit/EditTaskDrawer';
+import { CreateTaskDrawer } from '../tasks/create/CreateTaskDrawer';
+import { CreatePersonalTaskModal } from '../kanban/CreatePersonalTaskModal';
+import { useAppData } from '../../contexts/AppDataContext';
+
+export function AppLayout() {
+  const { createPersonalTask } = useAppData();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Global Command Palette & Overlay Drawers State
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [globalDetailTaskId, setGlobalDetailTaskId] = useState(null);
+  const [globalEditTaskId, setGlobalEditTaskId] = useState(null);
+  const [globalCreateTaskOpen, setGlobalCreateTaskOpen] = useState(false);
+  const [globalCreatePersonalTaskOpen, setGlobalCreatePersonalTaskOpen] = useState(false);
+
+  // Global Ctrl + K / Cmd + K Shortcut Listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Do not trigger if inside IME composition
+      if (e.isComposing) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  return (
+    <div className="h-screen w-screen overflow-hidden bg-[#F7F8FA] dark:bg-[#111315] flex font-sans">
+      {/* Desktop Left Sidebar */}
+      <Sidebar
+        className="hidden lg:flex"
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+      />
+
+      {/* Mobile Drawer */}
+      <MobileDrawer
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+      />
+
+      {/* Right Pane (Header + Content) */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen bg-[#F7F8FA] dark:bg-[#111315] overflow-y-auto">
+        {/* Sticky Top Header */}
+        <Header
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onOpenTaskDetail={(taskId) => setGlobalDetailTaskId(taskId)}
+        />
+
+        {/* Page Content Body */}
+        <main className="flex-1 px-4 sm:px-7 py-5 sm:py-6 w-full max-w-full overflow-x-hidden animate-fade-in flex flex-col">
+          <div className="space-y-6 flex-1">
+            <ChangePasswordAlert />
+            <Outlet />
+          </div>
+        </main>
+      </div>
+
+      {/* Global Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onOpenTask={(taskId) => {
+          setGlobalDetailTaskId(taskId);
+        }}
+        onOpenCreateTask={() => {
+          setGlobalCreateTaskOpen(true);
+        }}
+        onOpenCreatePersonalTask={() => {
+          setGlobalCreatePersonalTaskOpen(true);
+        }}
+      />
+
+      {/* Global Task Detail Drawer (Preserves underlying workspace context) */}
+      {globalDetailTaskId && (
+        <TaskDetailDrawer
+          taskId={globalDetailTaskId}
+          onClose={() => setGlobalDetailTaskId(null)}
+          onEditTask={(taskId) => {
+            setGlobalDetailTaskId(null);
+            setGlobalEditTaskId(taskId);
+          }}
+        />
+      )}
+
+      {/* Global Edit Task Drawer */}
+      {globalEditTaskId && (
+        <EditTaskDrawer
+          taskId={globalEditTaskId}
+          isOpen={Boolean(globalEditTaskId)}
+          onClose={(savedTask) => {
+            setGlobalEditTaskId(null);
+            if (savedTask?.id) {
+              setGlobalDetailTaskId(savedTask.id);
+            }
+          }}
+        />
+      )}
+
+      {/* Global Create Task Drawer */}
+      {globalCreateTaskOpen && (
+        <CreateTaskDrawer
+          isOpen={globalCreateTaskOpen}
+          onClose={() => setGlobalCreateTaskOpen(false)}
+        />
+      )}
+
+      {/* Global Create Personal Task Modal */}
+      {globalCreatePersonalTaskOpen && (
+        <CreatePersonalTaskModal
+          isOpen={globalCreatePersonalTaskOpen}
+          onClose={() => setGlobalCreatePersonalTaskOpen(false)}
+          onCreate={createPersonalTask}
+        />
+      )}
+    </div>
+  );
+}
