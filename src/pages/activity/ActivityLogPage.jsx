@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getNormalizedActivities } from '../../utils/activity/normalizeActivity';
@@ -18,6 +18,7 @@ const PAGE_SIZE_STEP = 25;
 
 export function ActivityLogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { activityLogs = [], tasks = [], departments = [] } = useAppData();
   const { currentUser, users = [] } = useAuth();
 
@@ -263,14 +264,28 @@ export function ActivityLogPage() {
       ) : viewMode === 'timeline' ? (
         <ActivityTimeline
           activities={visibleActivities}
-          onTaskClick={(id) => setSelectedTaskId(id)}
+          onTaskClick={(id) => {
+            if (!id) return;
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+              navigate(`/tasks/${id}`);
+              return;
+            }
+            setSelectedTaskId(id);
+          }}
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
         />
       ) : (
         <ActivityTable
           activities={visibleActivities}
-          onTaskClick={(id) => setSelectedTaskId(id)}
+          onTaskClick={(id) => {
+            if (!id) return;
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+              navigate(`/tasks/${id}`);
+              return;
+            }
+            setSelectedTaskId(id);
+          }}
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
         />

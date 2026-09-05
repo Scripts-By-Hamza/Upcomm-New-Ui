@@ -38,6 +38,14 @@ export function TaskDetailDrawer({
   const taskList = allTasks || tasks || [];
   const task = propTask || taskList.find((t) => t.id === effectiveTaskId);
 
+  // On mobile dimension (< 768px), skip drawer and redirect directly to the task detail page
+  useEffect(() => {
+    if (effectiveTaskId && typeof window !== 'undefined' && window.innerWidth < 768) {
+      onClose?.();
+      navigate(`/tasks/${effectiveTaskId}`);
+    }
+  }, [effectiveTaskId, navigate, onClose]);
+
   // Close menus on outside click
   useEffect(() => {
     function handleClickOutside(e) {
@@ -77,6 +85,10 @@ export function TaskDetailDrawer({
   };
 
   const permissions = task ? getTaskPermissions(task, currentUser) : {};
+
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    return null;
+  }
 
   return (
     <>

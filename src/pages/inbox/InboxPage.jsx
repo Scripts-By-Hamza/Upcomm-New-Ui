@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { InboxTabs } from '../../components/inbox/InboxTabs';
@@ -17,6 +17,7 @@ import { CheckCircle2, AlertTriangle, RotateCcw, Loader2, History } from 'lucide
 
 export function InboxPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const {
     completionRequests = [],
     deleteRequests = [],
@@ -371,6 +372,11 @@ export function InboxPage() {
 
   // View Task Drawer Handling
   const handleOpenTask = (taskId) => {
+    if (!taskId) return;
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      navigate(`/tasks/${taskId}`);
+      return;
+    }
     const next = new URLSearchParams(searchParams);
     next.set('task', taskId);
     setSearchParams(next);
@@ -381,6 +387,14 @@ export function InboxPage() {
     next.delete('task');
     setSearchParams(next);
   };
+
+  // On mobile dimension, redirect directly to task detail page if task query param is present
+  useEffect(() => {
+    if (selectedTaskId && typeof window !== 'undefined' && window.innerWidth < 768) {
+      handleCloseTask();
+      navigate(`/tasks/${selectedTaskId}`);
+    }
+  }, [selectedTaskId]);
 
   return (
     <div

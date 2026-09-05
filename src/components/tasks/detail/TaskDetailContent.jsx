@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppData, cleanTaskDescription } from '../../../contexts/AppDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Avatar } from '../../common/Avatar';
@@ -25,6 +26,8 @@ import {
   ExternalLink,
   Link2,
   AtSign,
+  MoreHorizontal,
+  Copy,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseTaskDueDateLocal, isTaskOverdue, formatDate } from '../../../utils/dateUtils';
@@ -144,6 +147,7 @@ export function TaskDetailContent({
     softDeleteTask,
   } = useAppData();
   const { currentUser, users = [] } = useAuth();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('comments'); // 'comments' | 'activity'
   const [newCommentText, setNewCommentText] = useState('');
@@ -155,6 +159,11 @@ export function TaskDetailContent({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddTeamModalOpen, setIsAddTeamModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // 3-Dots Dropdown Menu State
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const menuRef = useRef(null);
 
   // Mentions (@) & Link Dialog (/) States
   const [showMentionPopup, setShowMentionPopup] = useState(false);
@@ -189,12 +198,29 @@ export function TaskDetailContent({
       if (priorityMenuRef.current && !priorityMenuRef.current.contains(e.target)) {
         setIsPriorityMenuOpen(false);
       }
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setIsMenuOpen(false);
+      }
       if (mentionPopupRef.current && !mentionPopupRef.current.contains(e.target)) {
         setShowMentionPopup(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Escape key closes menus
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        setIsStatusMenuOpen(false);
+        setIsPriorityMenuOpen(false);
+        setIsMenuOpen(false);
+        setShowMentionPopup(false);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Mark all unread comments as read upon opening or switching to Comments tab
@@ -344,6 +370,18 @@ export function TaskDetailContent({
       return name.includes(q) || email.includes(q) || designation.includes(q) || roles.includes(q);
     });
   }, [showMentionPopup, mentionQuery, taskStakeholders]);
+
+  // Copy Link Handler
+  const handleCopyLink = () => {
+    if (!task) return;
+    const url = `${window.location.origin}/tasks/${task.id}`;
+    navigator.clipboard?.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => {
+      setCopiedLink(false);
+      setIsMenuOpen(false);
+    }, 1500);
+  };
 
   // Comment Input & Mention Handling
   const handleCommentInputChange = (e) => {
@@ -614,652 +652,614 @@ export function TaskDetailContent({
     if (commentFileInputRef.current) commentFileInputRef.current.value = '';
   };
 
-  return (
-    <div className="flex flex-col h-full font-['Inter']" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* 1. Scrollable Main Content */}
-      <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-6">
-        {/* Task Title */}
-        <div>
-          <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#18181B] leading-snug break-words">
-            {task.title}
-          </h2>
-        </div>
+  // Shared Sub-renderers
+  const renderPropertiesRows = (isSidebar = false) => (
+    <div className={`space-y-2.5 text-[12.5px] ${isSidebar ? '' : 'border-b border-[#E5E7EB] pb-6'}`}>
+      {/* Status Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Status</span>
+        <div className="relative" ref={statusMenuRef}>
+          {hasMyPendingRequest ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[12px] font-semibold bg-amber-50 text-[#D97706] border border-amber-200">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Completion Requested</span>
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+                className="inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] text-[#18181B] transition-colors cursor-pointer w-full"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${statusInfo.dot}`} />
+                  <span className={`font-medium ${statusInfo.color}`}>{statusInfo.label}</span>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
+              </button>
 
-        {/* 2. Compact Properties Section */}
-        <div className="space-y-2 text-[12.5px] border-b border-[#E5E7EB] pb-6">
-          {/* Status Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Status</span>
-            <div className="relative" ref={statusMenuRef}>
-              {hasMyPendingRequest ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[12px] font-semibold bg-amber-50 text-[#D97706] border border-amber-200">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Completion Requested</span>
-                </span>
-              ) : (
-                <>
+              {isStatusMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in space-y-0.5">
                   <button
                     type="button"
-                    onClick={() => setIsStatusMenuOpen((prev) => !prev)}
-                    className="inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] text-[#18181B] transition-colors cursor-pointer w-full max-w-[280px]"
+                    onClick={() => {
+                      setIsStatusMenuOpen(false);
+                      updateTaskStatus(task.id, 'pending');
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] text-[12px] text-[#52525B] hover:text-[#18181B] hover:bg-[#F5F6F8] cursor-pointer"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${statusInfo.dot}`} />
-                      <span className={`font-medium ${statusInfo.color}`}>{statusInfo.label}</span>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
+                    <span className="w-2 h-2 rounded-full bg-[#71717A]" />
+                    <span>Pending</span>
                   </button>
-
-                  {isStatusMenuOpen && (
-                    <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in space-y-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsStatusMenuOpen(false);
-                          updateTaskStatus(task.id, 'pending');
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] text-[12px] text-[#52525B] hover:text-[#18181B] hover:bg-[#F5F6F8] cursor-pointer"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-[#71717A]" />
-                        <span>Pending</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsStatusMenuOpen(false);
-                          updateTaskStatus(task.id, 'in_progress');
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] text-[12px] text-[#2563EB] hover:bg-blue-50 cursor-pointer"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-[#2563EB]" />
-                        <span>In Progress</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsStatusMenuOpen(false);
-                          if (permissions.mustRequestCompletion) {
-                            requestTaskCompletion(task.id);
-                          } else {
-                            updateTaskStatus(task.id, 'completed');
-                          }
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] text-[12px] text-[#059669] hover:bg-emerald-50 cursor-pointer"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-[#16A34A]" />
-                        <span>{permissions.mustRequestCompletion ? 'Request Complete' : 'Completed'}</span>
-                      </button>
-                    </div>
-                  )}
-                </>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsStatusMenuOpen(false);
+                      updateTaskStatus(task.id, 'in_progress');
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] text-[12px] text-[#2563EB] hover:bg-blue-50 cursor-pointer"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-[#2563EB]" />
+                    <span>In Progress</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsStatusMenuOpen(false);
+                      if (permissions.mustRequestCompletion) {
+                        requestTaskCompletion(task.id);
+                      } else {
+                        updateTaskStatus(task.id, 'completed');
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] text-[12px] text-[#059669] hover:bg-emerald-50 cursor-pointer"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-[#16A34A]" />
+                    <span>{permissions.mustRequestCompletion ? 'Request Complete' : 'Completed'}</span>
+                  </button>
+                </div>
               )}
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+      </div>
 
-          {/* Priority Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Priority</span>
-            <div className="relative" ref={priorityMenuRef}>
-              {permissions.canEdit ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setIsPriorityMenuOpen((prev) => !prev)}
-                    className="inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] text-[#18181B] transition-colors cursor-pointer w-full max-w-[280px]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Flag className={`w-3.5 h-3.5 ${priorityInfo.iconColor}`} />
-                      <span className={`font-medium ${priorityInfo.color}`}>{priorityInfo.label}</span>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
-                  </button>
-
-                  {isPriorityMenuOpen && (
-                    <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in space-y-0.5">
-                      {['urgent', 'high', 'medium', 'low'].map((p) => {
-                        const pInf = getPriorityInfo(p);
-                        return (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => {
-                              setIsPriorityMenuOpen(false);
-                              updateTask(task.id, { priority: p });
-                            }}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
-                              task.priority === p ? 'bg-[#F4F4F5] font-semibold' : 'text-[#52525B]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Flag className={`w-3.5 h-3.5 ${pInf.iconColor}`} />
-                              <span className={pInf.color}>{pInf.label}</span>
-                            </div>
-                            {task.priority === p && <Check className="w-3.5 h-3.5 text-[#059669]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex items-center gap-2 py-1.5">
+      {/* Priority Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Priority</span>
+        <div className="relative" ref={priorityMenuRef}>
+          {permissions.canEdit ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsPriorityMenuOpen((prev) => !prev)}
+                className="inline-flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] text-[#18181B] transition-colors cursor-pointer w-full"
+              >
+                <div className="flex items-center gap-2">
                   <Flag className={`w-3.5 h-3.5 ${priorityInfo.iconColor}`} />
                   <span className={`font-medium ${priorityInfo.color}`}>{priorityInfo.label}</span>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Assignee Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Assignee</span>
-            <div className="flex items-center gap-2 py-1">
-              {assignees.length === 0 ? (
-                <span className="text-[#8B8B95]">Unassigned</span>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center -space-x-1.5">
-                    {assignees.slice(0, 3).map((a) => (
-                      <Avatar
-                        key={a.id}
-                        src={a.avatar_url}
-                        name={a.full_name}
-                        size="xs"
-                        className="border-2 border-white ring-1 ring-slate-100"
-                      />
-                    ))}
-                  </div>
-                  <span className="font-medium text-[#18181B]">
-                    {assignees.map((a) => a.full_name).join(', ')}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Assistants Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Assistants</span>
-            <div className="flex items-center gap-2 py-1">
-              {assistants.length === 0 ? (
-                <span className="text-[#8B8B95]">—</span>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center -space-x-1.5">
-                    {assistants.slice(0, 3).map((ast) => (
-                      <Avatar
-                        key={ast.id}
-                        src={ast.avatar_url}
-                        name={ast.full_name}
-                        size="xs"
-                        className="border-2 border-white ring-1 ring-slate-100"
-                      />
-                    ))}
-                  </div>
-                  <span className="font-medium text-[#18181B]">
-                    {assistants.map((ast) => ast.full_name).join(' + ')}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Department Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Department</span>
-            <div className="flex items-center gap-1.5 text-[#18181B] font-medium py-1">
-              <Building2 className="w-3.5 h-3.5 text-[#8B8B95]" />
-              <span>
-                {Array.isArray(deptInfo) && deptInfo.length > 0
-                  ? deptInfo.map((d) => d.name).join(', ')
-                  : 'General'}
-              </span>
-            </div>
-          </div>
-
-          {/* Due Date Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Due Date</span>
-            <div className="flex items-center gap-1.5 text-[#18181B] font-medium py-1">
-              <CalendarDays className="w-3.5 h-3.5 text-[#8B8B95]" />
-              <span>{formattedDueDate}</span>
-            </div>
-          </div>
-
-          {/* Created By Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Created By</span>
-            <div className="flex items-center gap-2 py-1">
-              <Avatar
-                src={creator?.avatar_url}
-                name={creatorName}
-                size="xs"
-                className="border-2 border-white ring-1 ring-slate-100 flex-shrink-0"
-              />
-              <span className="font-medium text-[#18181B]">{creatorName}</span>
-            </div>
-          </div>
-
-          {/* Created Date Row */}
-          <div className="grid grid-cols-[120px_1fr] items-center gap-2 min-h-[34px]">
-            <span className="text-[#71717A] font-medium">Created</span>
-            <div className="flex items-center gap-1.5 text-[#18181B] font-medium">
-              <CalendarDays className="w-3.5 h-3.5 text-[#8B8B95]" />
-              <span>{formattedCreatedDate}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Description Section */}
-        <div className="space-y-2 border-b border-[#E5E7EB] pb-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[11.5px] font-bold text-[#18181B] uppercase tracking-wider">
-              Description
-            </h3>
-            {permissions.canEdit && (
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(true)}
-                className="p-1 rounded-[6px] text-[#8B8B95] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors cursor-pointer"
-                title="Edit task description"
-              >
-                <Pencil className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95]" />
               </button>
-            )}
-          </div>
-          <div className="text-[13px] text-[#52525B] leading-relaxed whitespace-pre-wrap">
-            {cleanTaskDescription(task.description) || (
-              <span className="italic text-[#8B8B95]">No description provided.</span>
-            )}
-          </div>
-        </div>
 
-        {/* 4. Attachments Section */}
-        <div className="space-y-3 border-b border-[#E5E7EB] pb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-[11.5px] font-bold text-[#18181B] uppercase tracking-wider">
-                Attachments
-              </h3>
-              <span className="px-1.5 py-0.2 rounded-full text-[10.5px] font-bold bg-[#F4F4F5] text-[#52525B]">
-                {task.attachments?.length || 0}
-              </span>
-            </div>
-
-            {permissions.canEdit && (
-              <div>
-                <input
-                  type="file"
-                  multiple
-                  ref={fileInputRef}
-                  onChange={handleAttachmentUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploadingAttachment}
-                  className="flex items-center gap-1 text-[11.5px] font-semibold text-[#059669] hover:underline cursor-pointer"
-                >
-                  {isUploadingAttachment ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Plus className="w-3.5 h-3.5" />
-                  )}
-                  <span>Add attachment</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Attachments List */}
-          {task.attachments && task.attachments.length > 0 ? (
-            <div className="space-y-2">
-              {task.attachments.map((att, idx) => {
-                const isImg = att.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(att.name || att.url || '');
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-3 p-2.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] transition-all group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-[6px] bg-[#F4F4F5] flex items-center justify-center flex-shrink-0 text-[#71717A]">
-                        {isImg ? <ImageIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[12.5px] font-semibold text-[#18181B] truncate">
-                          {att.name || 'Attachment'}
-                        </p>
-                        <p className="text-[10.5px] text-[#8B8B95]">
-                          {att.size ? `${(att.size / 1024 / 1024).toFixed(1)} MB` : ''}
-                          {att.created_at ? ` · ${formatDate(att.created_at)}` : ''}
-                        </p>
-                      </div>
-                    </div>
-
-                    <a
-                      href={att.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-[6px] text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors"
-                      title="Download file"
-                    >
-                      <Download className="w-4 h-4" />
-                    </a>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-[12px] text-[#8B8B95] italic">No files attached to this deliverable.</p>
-          )}
-        </div>
-
-        {/* 5. Comments & Activity Tabs */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-6 border-b border-[#E5E7EB]">
-            <button
-              type="button"
-              onClick={() => setActiveTab('comments')}
-              className={`pb-2.5 text-[13px] font-semibold transition-all relative cursor-pointer ${
-                activeTab === 'comments'
-                  ? 'text-[#059669]'
-                  : 'text-[#71717A] hover:text-[#18181B]'
-              }`}
-            >
-              <span>Comments</span>
-              {activeTab === 'comments' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('activity')}
-              className={`pb-2.5 text-[13px] font-semibold transition-all relative cursor-pointer ${
-                activeTab === 'activity'
-                  ? 'text-[#059669]'
-                  : 'text-[#71717A] hover:text-[#18181B]'
-              }`}
-            >
-              <span>Activity</span>
-              {activeTab === 'activity' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
-              )}
-            </button>
-          </div>
-
-          {/* Comments Feed */}
-          {activeTab === 'comments' ? (
-            <div className="space-y-4 pt-1">
-              {allUpdates.length > 0 ? (
-                allUpdates.map((upd) => {
-                  const author = userMap[upd.user_id];
-                  const authorName = author?.full_name || upd.user_name || 'Team Member';
-                  const isOwn = upd.user_id === currentUser?.id;
-
-                  const formattedTime = (() => {
-                    if (!upd.created_at) return '';
-                    try {
-                      return format(new Date(upd.created_at), 'p');
-                    } catch {
-                      return '';
-                    }
-                  })();
-
-                  return (
-                    <div key={upd.id || upd.created_at} className="flex items-start gap-3 text-left">
-                      <Avatar
-                        src={author?.avatar_url || upd.user_avatar}
-                        name={authorName}
-                        size="sm"
-                        className="flex-shrink-0 mt-0.5"
-                      />
-                      <div className="flex-1 min-w-0 space-y-1">
+              {isPriorityMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in space-y-0.5">
+                  {['urgent', 'high', 'medium', 'low'].map((p) => {
+                    const pInf = getPriorityInfo(p);
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => {
+                          setIsPriorityMenuOpen(false);
+                          updateTask(task.id, { priority: p });
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
+                          task.priority === p ? 'bg-[#F4F4F5] font-semibold' : 'text-[#52525B]'
+                        }`}
+                      >
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-semibold text-[#18181B]">
-                            {authorName}
-                          </span>
-                          <span className="text-[11px] text-[#8B8B95]">
-                            {formattedTime}
-                          </span>
+                          <Flag className={`w-3.5 h-3.5 ${pInf.iconColor}`} />
+                          <span className={pInf.color}>{pInf.label}</span>
                         </div>
-                        <div className="text-[12.5px] text-[#52525B] dark:text-[#D4D4D8] leading-relaxed whitespace-pre-wrap break-words">
-                          {renderFormattedCommentText(upd.text)}
-                        </div>
-
-                        {/* Comment Attachments */}
-                        {upd.attachments && upd.attachments.length > 0 && (
-                          <div className="flex flex-wrap gap-2 pt-1.5">
-                            {upd.attachments.map((att, i) => (
-                              <a
-                                key={i}
-                                href={att.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-2 py-1 rounded-[6px] bg-[#F4F4F5] dark:bg-[#27272A] hover:bg-[#E4E4E7] dark:hover:bg-[#3F3F46] border border-[#E5E7EB] dark:border-[#3F3F46] text-[11px] font-medium text-[#18181B] dark:text-white"
-                              >
-                                <FileText className="w-3 h-3 text-[#71717A] dark:text-[#A1A1AA]" />
-                                <span className="truncate max-w-[140px]">{att.name || 'File'}</span>
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="py-6 text-center text-[#8B8B95] dark:text-[#71717A] text-[12.5px]">
-                  No comments yet. Start the conversation below.
+                        {task.priority === p && <Check className="w-3.5 h-3.5 text-[#059669]" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
-              <div ref={chatBottomRef} />
-            </div>
+            </>
           ) : (
-            /* Activity Feed */
-            <div className="space-y-3 pt-1">
-              <div className="flex items-start gap-2.5 text-[12px] text-[#52525B] dark:text-[#A1A1AA]">
-                <Clock className="w-3.5 h-3.5 text-[#8B8B95] mt-0.5 flex-shrink-0" />
-                <div>
-                  <span className="font-semibold text-[#18181B] dark:text-white">{creatorName}</span> created this deliverable.
-                  <span className="text-[11px] text-[#8B8B95] ml-1.5">{formattedCreatedDate}</span>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 py-1.5">
+              <Flag className={`w-3.5 h-3.5 ${priorityInfo.iconColor}`} />
+              <span className={`font-medium ${priorityInfo.color}`}>{priorityInfo.label}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* 2. Sticky Bottom Comment Composer */}
-      <div className="border-t border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] p-3.5 flex-shrink-0 relative">
-        {/* Stakeholder @ Mentions Dropdown Popover */}
-        {showMentionPopup && (
-          <div
-            ref={mentionPopupRef}
-            className="absolute bottom-full left-3.5 right-3.5 sm:right-auto sm:w-80 mb-2 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-[10px] shadow-2xl overflow-hidden z-50 animate-scale-up select-none divide-y divide-[#F4F4F5] dark:divide-[#27272A]"
-          >
-            <div className="px-3 py-2 bg-[#FAFAFA] dark:bg-[#121214] border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#71717A] dark:text-[#A1A1AA] uppercase tracking-wider">
-                <AtSign className="w-3.5 h-3.5 text-[#059669]" />
-                <span>Task Stakeholders</span>
+      {/* Assignee Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Assignee</span>
+        <div className="flex items-center gap-2 py-1">
+          {assignees.length === 0 ? (
+            <span className="text-[#8B8B95]">Unassigned</span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center -space-x-1.5">
+                {assignees.slice(0, 3).map((a) => (
+                  <Avatar
+                    key={a.id}
+                    src={a.avatar_url}
+                    name={a.full_name}
+                    size="xs"
+                    className="border-2 border-white ring-1 ring-slate-100"
+                  />
+                ))}
               </div>
-              <span className="text-[10.5px] text-[#8B8B95] font-mono">
-                {filteredStakeholders.length} available
+              <span className="font-medium text-[#18181B] truncate max-w-[200px]">
+                {assignees.map((a) => a.full_name).join(', ')}
               </span>
             </div>
+          )}
+        </div>
+      </div>
 
-            <div className="max-h-56 overflow-y-auto p-1 space-y-0.5">
-              {filteredStakeholders.length === 0 ? (
-                <div className="p-3 text-center text-[12px] text-[#71717A] dark:text-[#A1A1AA]">
-                  No matching task stakeholders found
-                </div>
-              ) : (
-                filteredStakeholders.map((u, idx) => {
-                  const isHighlighted = idx === mentionIndex;
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onMouseEnter={() => setMentionIndex(idx)}
-                      onClick={() => handleSelectStakeholder(u)}
-                      className={`w-full px-2.5 py-2 text-left rounded-[7px] flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
-                        isHighlighted
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-[#18181B] dark:text-white'
-                          : 'hover:bg-[#F4F4F5] dark:hover:bg-[#202023] text-[#52525B] dark:text-[#D4D4D8]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Avatar src={u.avatar_url} name={u.full_name} size="xs" className="w-6 h-6 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[12.5px] font-semibold text-[#18181B] dark:text-white truncate">
-                            {u.full_name}
-                          </p>
-                          <p className="text-[10.5px] text-[#71717A] dark:text-[#A1A1AA] truncate">
-                            {u.designation || u.email}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Stakeholder Role Badges */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {(u.stakeholderRoles || ['Stakeholder']).map((roleName) => {
-                          const isCreator = roleName === 'Creator';
-                          const isAssignee = roleName === 'Assignee';
-                          const badgeClass = isCreator
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                            : isAssignee
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                            : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800';
-
-                          return (
-                            <span
-                              key={roleName}
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] border ${badgeClass}`}
-                            >
-                              {roleName}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="px-3 py-1.5 bg-[#FAFAFA] dark:bg-[#121214] text-[10.5px] text-[#8B8B95] flex items-center justify-between">
-              <span>Use ↑↓ to navigate</span>
-              <span>Enter to select • Esc to dismiss</span>
-            </div>
-          </div>
-        )}
-
-        {selectedFiles.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-2 px-1">
-            {selectedFiles.map((f, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-[#F4F4F5] dark:bg-[#202023] border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#18181B] dark:text-white"
-              >
-                <Paperclip className="w-3 h-3 text-[#71717A] dark:text-[#A1A1AA]" />
-                <span className="truncate max-w-[120px]">{f.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="text-[#8B8B95] hover:text-[#DC2626]"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+      {/* Assistants Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Assistants</span>
+        <div className="flex items-center gap-2 py-1">
+          {assistants.length === 0 ? (
+            <span className="text-[#8B8B95]">—</span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center -space-x-1.5">
+                {assistants.slice(0, 3).map((ast) => (
+                  <Avatar
+                    key={ast.id}
+                    src={ast.avatar_url}
+                    name={ast.full_name}
+                    size="xs"
+                    className="border-2 border-white ring-1 ring-slate-100"
+                  />
+                ))}
+              </div>
+              <span className="font-medium text-[#18181B] truncate max-w-[200px]">
+                {assistants.map((ast) => ast.full_name).join(' + ')}
               </span>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      </div>
 
-        <form onSubmit={handleSendComment} className="flex items-center gap-2.5">
+      {/* Department Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Department</span>
+        <div className="flex items-center gap-1.5 text-[#18181B] font-medium py-1">
+          <Building2 className="w-3.5 h-3.5 text-[#8B8B95] flex-shrink-0" />
+          <span className="truncate">
+            {Array.isArray(deptInfo) && deptInfo.length > 0
+              ? deptInfo.map((d) => d.name).join(', ')
+              : 'General'}
+          </span>
+        </div>
+      </div>
+
+      {/* Due Date Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Due Date</span>
+        <div className="flex items-center gap-1.5 text-[#18181B] font-medium py-1">
+          <CalendarDays className="w-3.5 h-3.5 text-[#8B8B95] flex-shrink-0" />
+          <span>{formattedDueDate}</span>
+        </div>
+      </div>
+
+      {/* Created By Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Created By</span>
+        <div className="flex items-center gap-2 py-1">
           <Avatar
-            src={currentUser?.avatar_url}
-            name={currentUser?.full_name}
-            size="sm"
-            className="flex-shrink-0"
+            src={creator?.avatar_url}
+            name={creatorName}
+            size="xs"
+            className="border-2 border-white ring-1 ring-slate-100 flex-shrink-0"
           />
+          <span className="font-medium text-[#18181B] truncate">{creatorName}</span>
+        </div>
+      </div>
 
-          <div className="relative flex-1">
-            <input
-              ref={commentInputRef}
-              type="text"
-              value={newCommentText}
-              onChange={handleCommentInputChange}
-              onKeyDown={handleCommentKeyDown}
-              placeholder="Write a comment... (type @ to mention, / for link)"
-              className="w-full h-9 pl-3 pr-24 bg-white dark:bg-[#121214] border border-[#E5E7EB] dark:border-[#3F3F46] hover:border-[#D4D4D8] focus:border-[#059669] dark:focus:border-[#059669] focus:ring-1 focus:ring-[#059669] rounded-[8px] text-[12.5px] text-[#18181B] dark:text-white placeholder:text-[#8B8B95] transition-all outline-none"
-            />
+      {/* Created Date Row */}
+      <div className="grid grid-cols-[105px_1fr] items-center gap-2 min-h-[34px]">
+        <span className="text-[#71717A] font-medium">Created</span>
+        <div className="flex items-center gap-1.5 text-[#18181B] font-medium">
+          <CalendarDays className="w-3.5 h-3.5 text-[#8B8B95] flex-shrink-0" />
+          <span>{formattedCreatedDate}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDescriptionSection = (isSidebar = false) => (
+    <div className={`space-y-2 ${isSidebar ? '' : 'border-b border-[#E5E7EB] pb-6'}`}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-[11.5px] font-bold text-[#18181B] uppercase tracking-wider">
+          Description
+        </h3>
+        {permissions.canEdit && (
+          <button
+            type="button"
+            onClick={() => setIsEditModalOpen(true)}
+            className="p-1 rounded-[6px] text-[#8B8B95] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors cursor-pointer"
+            title="Edit task description"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="text-[12.5px] text-[#52525B] leading-relaxed whitespace-pre-wrap break-words">
+        {cleanTaskDescription(task.description) || (
+          <span className="italic text-[#8B8B95]">No description provided.</span>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderAttachmentsSection = (isSidebar = false) => (
+    <div className={`space-y-3 ${isSidebar ? '' : 'border-b border-[#E5E7EB] pb-6'}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-[11.5px] font-bold text-[#18181B] uppercase tracking-wider">
+            Attachments
+          </h3>
+          <span className="px-1.5 py-0.2 rounded-full text-[10.5px] font-bold bg-[#F4F4F5] text-[#52525B]">
+            {task.attachments?.length || 0}
+          </span>
+        </div>
+
+        {permissions.canEdit && (
+          <div>
             <input
               type="file"
               multiple
-              ref={commentFileInputRef}
-              onChange={handleCommentFileSelect}
+              ref={fileInputRef}
+              onChange={handleAttachmentUpload}
               className="hidden"
             />
-            
-            {/* Quick Actions inside input (Mention @, Link /, Attach) */}
-            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-[#8B8B95]">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMentionPopup(true);
-                  setMentionQuery('');
-                  setMentionIndex(0);
-                  setMentionCursorPos(newCommentText.length);
-                  setNewCommentText((prev) => prev + (prev.endsWith(' ') || !prev ? '@' : ' @'));
-                  setTimeout(() => commentInputRef.current?.focus(), 20);
-                }}
-                className="p-1 hover:text-[#059669] dark:hover:text-emerald-400 hover:bg-[#F4F4F5] dark:hover:bg-[#202023] rounded transition-colors cursor-pointer"
-                title="Mention Stakeholder (@)"
-              >
-                <AtSign className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLinkModalOpen(true);
-                  setLinkUrl('');
-                  setLinkTitle('');
-                  setLinkError('');
-                }}
-                className="p-1 hover:text-[#2563EB] dark:hover:text-blue-400 hover:bg-[#F4F4F5] dark:hover:bg-[#202023] rounded transition-colors cursor-pointer"
-                title="Insert Link (/)"
-              >
-                <Link2 className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => commentFileInputRef.current?.click()}
-                className="p-1 hover:text-[#18181B] dark:hover:text-white hover:bg-[#F4F4F5] dark:hover:bg-[#202023] rounded transition-colors cursor-pointer"
-                title="Attach file"
-              >
-                <Paperclip className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAttachment}
+              className="flex items-center gap-1 text-[11.5px] font-semibold text-[#059669] hover:underline cursor-pointer"
+            >
+              {isUploadingAttachment ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" />
+              )}
+              <span>Add attachment</span>
+            </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={(!newCommentText.trim() && selectedFiles.length === 0) || isSubmittingComment}
-            className="h-9 px-4 bg-[#059669] hover:bg-[#047857] disabled:bg-[#D4D4D8] dark:disabled:bg-[#27272A] text-white disabled:text-[#8B8B95] rounded-[8px] text-[12.5px] font-semibold transition-colors flex items-center justify-center cursor-pointer flex-shrink-0 disabled:cursor-not-allowed shadow-2xs"
-          >
-            {isSubmittingComment ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <span>Send</span>
-            )}
-          </button>
-        </form>
+        )}
       </div>
 
-      {/* 3. Sub-Modals */}
+      {/* Attachments List */}
+      {task.attachments && task.attachments.length > 0 ? (
+        <div className="space-y-2">
+          {task.attachments.map((att, idx) => {
+            const isImg = att.type?.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(att.name || att.url || '');
+            return (
+              <div
+                key={idx}
+                className="flex items-center justify-between gap-3 p-2.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] transition-all group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-[6px] bg-[#F4F4F5] flex items-center justify-center flex-shrink-0 text-[#71717A]">
+                    {isImg ? <ImageIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12.5px] font-semibold text-[#18181B] truncate">
+                      {att.name || 'Attachment'}
+                    </p>
+                    <p className="text-[10.5px] text-[#8B8B95]">
+                      {att.size ? `${(att.size / 1024 / 1024).toFixed(1)} MB` : ''}
+                      {att.created_at ? ` · ${formatDate(att.created_at)}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded-[6px] text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors"
+                  title="Download file"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-[12px] text-[#8B8B95] italic">No files attached to this deliverable.</p>
+      )}
+    </div>
+  );
+
+  const renderFeedContent = () => {
+    if (activeTab === 'comments') {
+      return (
+        <div className="space-y-4 pt-1">
+          {allUpdates.length > 0 ? (
+            allUpdates.map((upd) => {
+              const author = userMap[upd.user_id];
+              const authorName = author?.full_name || upd.user_name || 'Team Member';
+
+              const formattedTime = (() => {
+                if (!upd.created_at) return '';
+                try {
+                  return format(new Date(upd.created_at), 'p');
+                } catch {
+                  return '';
+                }
+              })();
+
+              return (
+                <div key={upd.id || upd.created_at} className="flex items-start gap-3 text-left">
+                  <Avatar
+                    src={author?.avatar_url || upd.user_avatar}
+                    name={authorName}
+                    size="sm"
+                    className="flex-shrink-0 mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-semibold text-[#18181B]">
+                        {authorName}
+                      </span>
+                      <span className="text-[11px] text-[#8B8B95]">
+                        {formattedTime}
+                      </span>
+                    </div>
+                    <div className="text-[12.5px] text-[#52525B] dark:text-[#D4D4D8] leading-relaxed whitespace-pre-wrap break-words">
+                      {renderFormattedCommentText(upd.text)}
+                    </div>
+
+                    {/* Comment Attachments */}
+                    {upd.attachments && upd.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1.5">
+                        {upd.attachments.map((att, i) => (
+                          <a
+                            key={i}
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-2 py-1 rounded-[6px] bg-[#F4F4F5] dark:bg-[#27272A] hover:bg-[#E4E4E7] dark:hover:bg-[#3F3F46] border border-[#E5E7EB] dark:border-[#3F3F46] text-[11px] font-medium text-[#18181B] dark:text-white"
+                          >
+                            <FileText className="w-3 h-3 text-[#71717A] dark:text-[#A1A1AA]" />
+                            <span className="truncate max-w-[140px]">{att.name || 'File'}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-8 text-center text-[#8B8B95] dark:text-[#71717A] text-[12.5px]">
+              No comments yet. Start the conversation below.
+            </div>
+          )}
+          <div ref={chatBottomRef} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3 pt-1">
+        <div className="flex items-start gap-2.5 text-[12px] text-[#52525B] dark:text-[#A1A1AA]">
+          <Clock className="w-3.5 h-3.5 text-[#8B8B95] mt-0.5 flex-shrink-0" />
+          <div>
+            <span className="font-semibold text-[#18181B] dark:text-white">{creatorName}</span> created this deliverable.
+            <span className="text-[11px] text-[#8B8B95] ml-1.5">{formattedCreatedDate}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCommentComposer = () => (
+    <div className="border-t border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] p-3.5 flex-shrink-0 relative">
+      {/* Stakeholder @ Mentions Dropdown Popover */}
+      {showMentionPopup && (
+        <div
+          ref={mentionPopupRef}
+          className="absolute bottom-full left-3.5 right-3.5 sm:right-auto sm:w-80 mb-2 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-[10px] shadow-2xl overflow-hidden z-50 animate-scale-up select-none divide-y divide-[#F4F4F5] dark:divide-[#27272A]"
+        >
+          <div className="px-3 py-2 bg-[#FAFAFA] dark:bg-[#121214] border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#71717A] dark:text-[#A1A1AA] uppercase tracking-wider">
+              <AtSign className="w-3.5 h-3.5 text-[#059669]" />
+              <span>Task Stakeholders</span>
+            </div>
+            <span className="text-[10.5px] text-[#8B8B95] font-mono">
+              {filteredStakeholders.length} available
+            </span>
+          </div>
+
+          <div className="max-h-56 overflow-y-auto p-1 space-y-0.5">
+            {filteredStakeholders.length === 0 ? (
+              <div className="p-3 text-center text-[12px] text-[#71717A] dark:text-[#A1A1AA]">
+                No matching task stakeholders found
+              </div>
+            ) : (
+              filteredStakeholders.map((u, idx) => {
+                const isHighlighted = idx === mentionIndex;
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onMouseEnter={() => setMentionIndex(idx)}
+                    onClick={() => handleSelectStakeholder(u)}
+                    className={`w-full px-2.5 py-2 text-left rounded-[7px] flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
+                      isHighlighted
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-[#18181B] dark:text-white'
+                        : 'hover:bg-[#F4F4F5] dark:hover:bg-[#202023] text-[#52525B] dark:text-[#D4D4D8]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar src={u.avatar_url} name={u.full_name} size="xs" className="w-6 h-6 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[12.5px] font-semibold text-[#18181B] dark:text-white truncate">
+                          {u.full_name}
+                        </p>
+                        <p className="text-[10.5px] text-[#71717A] dark:text-[#A1A1AA] truncate">
+                          {u.designation || u.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Stakeholder Role Badges */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {(u.stakeholderRoles || ['Stakeholder']).map((roleName) => {
+                        const isCreator = roleName === 'Creator';
+                        const isAssignee = roleName === 'Assignee';
+                        const badgeClass = isCreator
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                          : isAssignee
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                          : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+
+                        return (
+                          <span
+                            key={roleName}
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] border ${badgeClass}`}
+                          >
+                            {roleName}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <div className="px-3 py-1.5 bg-[#FAFAFA] dark:bg-[#121214] text-[10.5px] text-[#8B8B95] flex items-center justify-between">
+            <span>Use ↑↓ to navigate</span>
+            <span>Enter to select • Esc to dismiss</span>
+          </div>
+        </div>
+      )}
+
+      {selectedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2 px-1">
+          {selectedFiles.map((f, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-[#F4F4F5] dark:bg-[#202023] border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#18181B] dark:text-white"
+            >
+              <Paperclip className="w-3 h-3 text-[#71717A] dark:text-[#A1A1AA]" />
+              <span className="truncate max-w-[120px]">{f.name}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                className="text-[#8B8B95] hover:text-[#DC2626]"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={handleSendComment} className="flex items-center gap-2.5">
+        <Avatar
+          src={currentUser?.avatar_url}
+          name={currentUser?.full_name}
+          size="sm"
+          className="flex-shrink-0"
+        />
+
+        <div className="relative flex-1">
+          <input
+            ref={commentInputRef}
+            type="text"
+            value={newCommentText}
+            onChange={handleCommentInputChange}
+            onKeyDown={handleCommentKeyDown}
+            placeholder="Write a comment... (type @ to mention, / for link)"
+            className="w-full h-9 pl-3 pr-24 bg-white dark:bg-[#121214] border border-[#E5E7EB] dark:border-[#3F3F46] hover:border-[#D4D4D8] focus:border-[#059669] dark:focus:border-[#059669] focus:ring-1 focus:ring-[#059669] rounded-[8px] text-[12.5px] text-[#18181B] dark:text-white placeholder:text-[#8B8B95] transition-all outline-none"
+          />
+          <input
+            type="file"
+            multiple
+            ref={commentFileInputRef}
+            onChange={handleCommentFileSelect}
+            className="hidden"
+          />
+          
+          {/* Quick Actions inside input (Mention @, Link /, Attach) */}
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-[#8B8B95]">
+            <button
+              type="button"
+              onClick={() => {
+                setShowMentionPopup(true);
+                setMentionQuery('');
+                setMentionIndex(0);
+                setMentionCursorPos(newCommentText.length);
+                setNewCommentText((prev) => prev + (prev.endsWith(' ') || !prev ? '@' : ' @'));
+                setTimeout(() => commentInputRef.current?.focus(), 20);
+              }}
+              className="p-1 hover:text-[#059669] dark:hover:text-emerald-400 hover:bg-[#F4F4F5] dark:hover:bg-[#202023] rounded transition-colors cursor-pointer"
+              title="Mention Stakeholder (@)"
+            >
+              <AtSign className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsLinkModalOpen(true);
+                setLinkUrl('');
+                setLinkTitle('');
+                setLinkError('');
+              }}
+              className="p-1 hover:text-[#2563EB] dark:hover:text-blue-400 hover:bg-[#F4F4F5] dark:hover:bg-[#202023] rounded transition-colors cursor-pointer"
+              title="Insert Link (/)"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => commentFileInputRef.current?.click()}
+              className="p-1 hover:text-[#18181B] dark:hover:text-white hover:bg-[#F4F4F5] dark:hover:bg-[#202023] rounded transition-colors cursor-pointer"
+              title="Attach file"
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={(!newCommentText.trim() && selectedFiles.length === 0) || isSubmittingComment}
+          className="h-9 px-4 bg-[#059669] hover:bg-[#047857] disabled:bg-[#D4D4D8] dark:disabled:bg-[#27272A] text-white disabled:text-[#8B8B95] rounded-[8px] text-[12.5px] font-semibold transition-colors flex items-center justify-center cursor-pointer flex-shrink-0 disabled:cursor-not-allowed shadow-2xs"
+        >
+          {isSubmittingComment ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <span>Send</span>
+          )}
+        </button>
+      </form>
+    </div>
+  );
+
+  const renderModals = () => (
+    <>
       <EditTaskModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
@@ -1278,7 +1278,7 @@ export function TaskDetailContent({
         task={task}
       />
 
-      {/* 4. Insert Link Dialog Modal */}
+      {/* Insert Link Dialog Modal */}
       <Modal
         isOpen={isLinkModalOpen}
         onClose={() => {
@@ -1357,6 +1357,476 @@ export function TaskDetailContent({
           </div>
         </form>
       </Modal>
+    </>
+  );
+
+  // If Drawer view, render standard single-column slide drawer content
+  if (isDrawer) {
+    return (
+      <div className="flex flex-col h-full font-['Inter']" style={{ fontFamily: 'Inter, sans-serif' }}>
+        {/* 1. Scrollable Main Content */}
+        <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-6">
+          {/* Task Title */}
+          <div>
+            <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#18181B] leading-snug break-words">
+              {task.title}
+            </h2>
+          </div>
+
+          {/* Properties Section */}
+          {renderPropertiesRows(false)}
+
+          {/* Description Section */}
+          {renderDescriptionSection(false)}
+
+          {/* Attachments Section */}
+          {renderAttachmentsSection(false)}
+
+          {/* Comments & Activity Tabs */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-6 border-b border-[#E5E7EB]">
+              <button
+                type="button"
+                onClick={() => setActiveTab('comments')}
+                className={`pb-2.5 text-[13px] font-semibold transition-all relative cursor-pointer ${
+                  activeTab === 'comments'
+                    ? 'text-[#059669]'
+                    : 'text-[#71717A] hover:text-[#18181B]'
+                }`}
+              >
+                <span>Comments</span>
+                {activeTab === 'comments' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('activity')}
+                className={`pb-2.5 text-[13px] font-semibold transition-all relative cursor-pointer ${
+                  activeTab === 'activity'
+                    ? 'text-[#059669]'
+                    : 'text-[#71717A] hover:text-[#18181B]'
+                }`}
+              >
+                <span>Activity</span>
+                {activeTab === 'activity' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
+                )}
+              </button>
+            </div>
+
+            {renderFeedContent()}
+          </div>
+        </div>
+
+        {/* 2. Sticky Bottom Comment Composer */}
+        {renderCommentComposer()}
+
+        {/* 3. Sub-Modals */}
+        {renderModals()}
+      </div>
+    );
+  }
+
+  // Full Page Layout: Desktop = Fiverr 2-Column Split, Mobile = Exact Original Single Container
+  return (
+    <div className="font-['Inter']" style={{ fontFamily: 'Inter, sans-serif' }}>
+      
+      {/* 1. Desktop Only: Fiverr-Style 2-Column Split Layout */}
+      <div className="hidden lg:flex gap-6 items-start">
+        {/* Left Column: Task Header & Discussion / Activity Hub (~65% width) in a Single Unified Container */}
+        <div className="flex-1 min-w-0 w-full">
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] shadow-xs overflow-hidden flex flex-col min-h-[600px]">
+            {/* Task Header Section */}
+            <div className="p-5 sm:p-6 space-y-3 border-b border-[#E5E7EB]">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[12px] font-bold text-[#71717A] bg-[#F4F4F5] px-2.5 py-0.5 rounded-[5px]">
+                  {task.task_number || 'TM-0000'}
+                </span>
+                {Array.isArray(deptInfo) && deptInfo.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-[5px] text-[11.5px] font-semibold bg-slate-100 text-[#475569] border border-slate-200">
+                    <Building2 className="w-3 h-3 text-[#64748B]" />
+                    <span>{deptInfo.map((d) => d.name).join(', ')}</span>
+                  </span>
+                )}
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[5px] text-[11.5px] font-semibold border ${
+                  task.status === 'completed'
+                    ? 'bg-emerald-50 text-[#059669] border-emerald-200'
+                    : task.status === 'in_progress'
+                    ? 'bg-blue-50 text-[#2563EB] border-blue-200'
+                    : 'bg-zinc-100 text-[#71717A] border-zinc-200'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+                  <span>{statusInfo.label}</span>
+                </span>
+                {task.priority && (
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-[5px] text-[11.5px] font-semibold bg-zinc-50 border border-zinc-200 ${priorityInfo.color}`}>
+                    <Flag className={`w-3 h-3 ${priorityInfo.iconColor}`} />
+                    <span>{priorityInfo.label}</span>
+                  </span>
+                )}
+              </div>
+
+              <h1 className="text-[20px] sm:text-[24px] font-bold text-[#18181B] tracking-tight leading-snug break-words">
+                {task.title}
+              </h1>
+
+              <div className="flex items-center gap-2 text-[12px] text-[#71717A] pt-0.5">
+                <span>Created by <strong className="text-[#18181B] font-medium">{creatorName}</strong></span>
+                <span>•</span>
+                <span>{formattedCreatedDate}</span>
+              </div>
+            </div>
+
+            {/* Discussion & Activity Tabs Header */}
+            <div className="px-6 pt-3.5 border-b border-[#E5E7EB] bg-white flex items-center justify-between select-none">
+              <div className="flex items-center gap-6">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('comments')}
+                  className={`pb-3 text-[13.5px] font-semibold transition-all relative cursor-pointer flex items-center gap-2 ${
+                    activeTab === 'comments'
+                      ? 'text-[#059669]'
+                      : 'text-[#71717A] hover:text-[#18181B]'
+                  }`}
+                >
+                  <span>Comments & Discussion</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[#F4F4F5] text-[#52525B]">
+                    {allUpdates.length}
+                  </span>
+                  {activeTab === 'comments' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('activity')}
+                  className={`pb-3 text-[13.5px] font-semibold transition-all relative cursor-pointer flex items-center gap-2 ${
+                    activeTab === 'activity'
+                      ? 'text-[#059669]'
+                      : 'text-[#71717A] hover:text-[#18181B]'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Activity History</span>
+                  {activeTab === 'activity' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Feed */}
+            <div className="flex-1 p-5 sm:p-6 overflow-y-auto space-y-4 max-h-[600px] min-h-[320px]">
+              {renderFeedContent()}
+            </div>
+
+            {/* Sticky Bottom Composer */}
+            {renderCommentComposer()}
+          </div>
+        </div>
+
+        {/* Right Column: Information Sidebar (~35% width, Fiverr style) */}
+        <div className="w-[380px] xl:w-[420px] flex-shrink-0 space-y-5">
+          {/* Deliverable Details Card */}
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] shadow-xs overflow-hidden">
+            {/* Header: Task Number + 3-dots Menu */}
+            <div className="h-12 px-5 border-b border-[#E5E7EB] flex items-center justify-between bg-white select-none">
+              <span className="font-mono text-[12px] font-bold text-[#71717A]">
+                {task.task_number || 'TM-0000'}
+              </span>
+
+              {/* 3-Dots Dropdown Menu */}
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsMenuOpen((prev) => !prev)}
+                  className={`p-1.5 rounded-[6px] transition-colors cursor-pointer ${
+                    isMenuOpen
+                      ? 'bg-[#F4F4F5] text-[#18181B]'
+                      : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
+                  }`}
+                  title="More actions"
+                  aria-label="More task actions"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+
+                {isMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in space-y-0.5 text-left text-[12px] font-medium text-[#52525B]">
+                    {permissions.canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsEditModalOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] hover:bg-[#F5F6F8] hover:text-[#18181B] cursor-pointer transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[#71717A]" />
+                        <span>Edit Task</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] hover:bg-[#F5F6F8] hover:text-[#18181B] cursor-pointer transition-colors"
+                    >
+                      {copiedLink ? (
+                        <Check className="w-3.5 h-3.5 text-[#059669]" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5 text-[#71717A]" />
+                      )}
+                      <span>{copiedLink ? 'Link Copied!' : 'Copy Link'}</span>
+                    </button>
+
+                    {(permissions.canDelete || permissions.canRequestDelete) && (
+                      <>
+                        <div className="h-px bg-[#E5E7EB] my-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            if (permissions.canDelete) {
+                              if (window.confirm('Are you sure you want to soft-delete this task?')) {
+                                softDeleteTask(task.id, currentUser.id);
+                                navigate('/tasks');
+                              }
+                            } else {
+                              setIsDeleteModalOpen(true);
+                            }
+                          }}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] hover:bg-red-50 text-[#DC2626] cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-[#DC2626]" />
+                          <span>{permissions.canDelete ? 'Delete Task' : 'Request Delete'}</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Properties Rows */}
+            <div className="p-5 space-y-3.5 text-[12.5px]">
+              {renderPropertiesRows(true)}
+            </div>
+          </div>
+
+          {/* Description Card */}
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-5 shadow-xs space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[11.5px] font-bold text-[#18181B] uppercase tracking-wider">
+                Description
+              </h3>
+              {permissions.canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="p-1 rounded-[6px] text-[#8B8B95] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors cursor-pointer"
+                  title="Edit task description"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="text-[12.5px] text-[#52525B] leading-relaxed whitespace-pre-wrap break-words">
+              {cleanTaskDescription(task.description) || (
+                <span className="italic text-[#8B8B95]">No description provided.</span>
+              )}
+            </div>
+          </div>
+
+          {/* Attachments Card */}
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-[11.5px] font-bold text-[#18181B] uppercase tracking-wider">
+                  Attachments
+                </h3>
+                <span className="px-1.5 py-0.2 rounded-full text-[10.5px] font-bold bg-[#F4F4F5] text-[#52525B]">
+                  {task.attachments?.length || 0}
+                </span>
+              </div>
+
+              {permissions.canEdit && (
+                <div>
+                  <input
+                    type="file"
+                    multiple
+                    ref={fileInputRef}
+                    onChange={handleAttachmentUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingAttachment}
+                    className="flex items-center gap-1 text-[11.5px] font-semibold text-[#059669] hover:underline cursor-pointer"
+                  >
+                    {isUploadingAttachment ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5" />
+                    )}
+                    <span>Add attachment</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {renderAttachmentsSection(true)}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Mobile Only: Exact Original Unified Single-Container Layout */}
+      <div className="block lg:hidden bg-white rounded-[12px] border border-[#E5E7EB] shadow-xs overflow-hidden min-h-[500px] flex flex-col">
+        {/* Task Number Top Bar with 3-Dots Menu */}
+        <div className="h-12 px-5 border-b border-[#E5E7EB] flex items-center justify-between bg-white select-none">
+          <span className="font-mono text-[12px] font-bold text-[#71717A]">
+            {task.task_number || 'TM-0000'}
+          </span>
+
+          {/* 3-Dots Dropdown Menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              className={`p-1.5 rounded-[6px] transition-colors cursor-pointer ${
+                isMenuOpen
+                  ? 'bg-[#F4F4F5] text-[#18181B]'
+                  : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5]'
+              }`}
+              title="More actions"
+              aria-label="More task actions"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+
+            {isMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in space-y-0.5 text-left text-[12px] font-medium text-[#52525B]">
+                {permissions.canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      setIsEditModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] hover:bg-[#F5F6F8] hover:text-[#18181B] cursor-pointer transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-[#71717A]" />
+                    <span>Edit Task</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] hover:bg-[#F5F6F8] hover:text-[#18181B] cursor-pointer transition-colors"
+                >
+                  {copiedLink ? (
+                    <Check className="w-3.5 h-3.5 text-[#059669]" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-[#71717A]" />
+                  )}
+                  <span>{copiedLink ? 'Link Copied!' : 'Copy Link'}</span>
+                </button>
+
+                {(permissions.canDelete || permissions.canRequestDelete) && (
+                  <>
+                    <div className="h-px bg-[#E5E7EB] my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        if (permissions.canDelete) {
+                          if (window.confirm('Are you sure you want to soft-delete this task?')) {
+                            softDeleteTask(task.id, currentUser.id);
+                            navigate('/tasks');
+                          }
+                        } else {
+                          setIsDeleteModalOpen(true);
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] hover:bg-red-50 text-[#DC2626] cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-[#DC2626]" />
+                      <span>{permissions.canDelete ? 'Delete Task' : 'Request Delete'}</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="p-5 space-y-6 flex-1">
+          {/* Task Title */}
+          <div>
+            <h2 className="text-[18px] font-semibold text-[#18181B] leading-snug break-words">
+              {task.title}
+            </h2>
+          </div>
+
+          {/* Properties Section */}
+          {renderPropertiesRows(false)}
+
+          {/* Description Section */}
+          {renderDescriptionSection(false)}
+
+          {/* Attachments Section */}
+          {renderAttachmentsSection(false)}
+
+          {/* Comments & Activity Tabs */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-6 border-b border-[#E5E7EB]">
+              <button
+                type="button"
+                onClick={() => setActiveTab('comments')}
+                className={`pb-2.5 text-[13px] font-semibold transition-all relative cursor-pointer ${
+                  activeTab === 'comments'
+                    ? 'text-[#059669]'
+                    : 'text-[#71717A] hover:text-[#18181B]'
+                }`}
+              >
+                <span>Comments</span>
+                {activeTab === 'comments' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('activity')}
+                className={`pb-2.5 text-[13px] font-semibold transition-all relative cursor-pointer ${
+                  activeTab === 'activity'
+                    ? 'text-[#059669]'
+                    : 'text-[#71717A] hover:text-[#18181B]'
+                }`}
+              >
+                <span>Activity</span>
+                {activeTab === 'activity' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#059669] rounded-full" />
+                )}
+              </button>
+            </div>
+
+            {renderFeedContent()}
+          </div>
+        </div>
+
+        {/* Sticky Composer */}
+        {renderCommentComposer()}
+      </div>
+
+      {/* Sub Modals */}
+      {renderModals()}
     </div>
   );
 }

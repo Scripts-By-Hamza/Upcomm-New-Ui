@@ -72,7 +72,13 @@ export function AppLayout() {
         <Header
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-          onOpenTaskDetail={(taskId) => setGlobalDetailTaskId(taskId)}
+          onOpenTaskDetail={(taskId) => {
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+              navigate(`/tasks/${taskId}`);
+            } else {
+              setGlobalDetailTaskId(taskId);
+            }
+          }}
         />
 
         {/* Page Content Body */}
@@ -95,7 +101,11 @@ export function AppLayout() {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onOpenTask={(taskId) => {
-          setGlobalDetailTaskId(taskId);
+          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            navigate(`/tasks/${taskId}`);
+          } else {
+            setGlobalDetailTaskId(taskId);
+          }
         }}
         onOpenCreateTask={() => {
           setGlobalCreateTaskOpen(true);

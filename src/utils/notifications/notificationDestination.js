@@ -25,7 +25,9 @@ export function handleNotificationClick({
   const destination = notification.destination;
 
   if (destination?.type === 'task' && destination?.taskId) {
-    if (onOpenTaskDetail) {
+    if (typeof window !== 'undefined' && window.innerWidth < 768 && navigate) {
+      navigate(`/tasks/${destination.taskId}`);
+    } else if (onOpenTaskDetail) {
       onOpenTaskDetail(destination.taskId);
     } else if (navigate) {
       navigate(`/tasks/${destination.taskId}`);

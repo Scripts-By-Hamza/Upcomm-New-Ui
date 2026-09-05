@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import { isTaskOverdue, isTaskDueSoon } from '../../utils/dateUtils';
 import {
   isTaskInDepartment,
@@ -46,6 +46,7 @@ export function TaskListPage({ filterType: propFilterType }) {
   } = useAppData();
   const { currentUser, users = [] } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const role = currentUser?.role?.toLowerCase() || '';
@@ -202,6 +203,10 @@ export function TaskListPage({ filterType: propFilterType }) {
   const [editOriginIsDetail, setEditOriginIsDetail] = useState(false);
 
   const handleOpenTask = (taskId) => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      navigate(`/tasks/${taskId}`);
+      return;
+    }
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete('edit');
     nextParams.set('task', taskId);
@@ -213,6 +218,14 @@ export function TaskListPage({ filterType: propFilterType }) {
     nextParams.delete('task');
     setSearchParams(nextParams);
   };
+
+  // On mobile dimension, redirect directly to task detail page if task query param is present
+  useEffect(() => {
+    if (selectedTaskId && typeof window !== 'undefined' && window.innerWidth < 768) {
+      handleCloseTask();
+      navigate(`/tasks/${selectedTaskId}`);
+    }
+  }, [selectedTaskId]);
 
   const handleOpenEdit = (taskId, fromDetail = false) => {
     setEditOriginIsDetail(fromDetail);

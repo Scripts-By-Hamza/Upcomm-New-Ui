@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppData } from '../../contexts/AppDataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -81,6 +81,10 @@ export function DepartmentDetailPage() {
     if (!taskOrId) return;
     const taskId = typeof taskOrId === 'object' && taskOrId !== null ? taskOrId.id : taskOrId;
     if (!taskId) return;
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      navigate(`/tasks/${taskId}`);
+      return;
+    }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('edit');
@@ -96,6 +100,14 @@ export function DepartmentDetailPage() {
       return next;
     });
   };
+
+  // On mobile dimension, redirect directly to task detail page if task query param is present
+  useEffect(() => {
+    if (activeDrawerTaskId && typeof window !== 'undefined' && window.innerWidth < 768) {
+      handleCloseTaskDrawer();
+      navigate(`/tasks/${activeDrawerTaskId}`);
+    }
+  }, [activeDrawerTaskId]);
 
   const handleOpenEditDrawer = (taskOrId, fromDetail = false) => {
     setEditOriginIsDetail(fromDetail);

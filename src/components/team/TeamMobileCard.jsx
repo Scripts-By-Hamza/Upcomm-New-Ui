@@ -3,6 +3,7 @@ import { Avatar } from '../common/Avatar';
 import {
   MoreVertical,
   Pencil,
+  Shield,
   UserX,
   UserCheck,
   Trash2,
