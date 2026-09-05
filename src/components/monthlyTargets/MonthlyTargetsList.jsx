@@ -10,12 +10,12 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronRight,
-  MoreVertical,
   CheckCircle2,
   CircleDot,
   Clock,
   Edit2,
   Trash2,
+  Calendar,
 } from 'lucide-react';
 
 import { useAppData } from '../../contexts/AppDataContext';
@@ -143,7 +143,7 @@ export function MonthlyTargetsList({
   const renderStatusBadge = (status) => {
     if (status === 'completed') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-emerald-50 text-[#059669] border border-emerald-200">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#059669] border border-emerald-200">
           <CheckCircle2 className="w-3 h-3" />
           Completed
         </span>
@@ -151,14 +151,14 @@ export function MonthlyTargetsList({
     }
     if (status === 'in_progress') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-blue-50 text-[#2563EB] border border-blue-200">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-[#2563EB] border border-blue-200">
           <CircleDot className="w-3 h-3" />
           In Progress
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-[#F4F4F5] text-[#71717A] border border-[#E4E4E7]">
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#F4F4F5] text-[#71717A] border border-[#E4E4E7]">
         <Clock className="w-3 h-3" />
         Not Started
       </span>
@@ -167,7 +167,7 @@ export function MonthlyTargetsList({
 
   if (targets.length === 0) {
     return (
-      <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-12 text-center text-[#8B8B95] space-y-2 select-none">
+      <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-8 sm:p-12 text-center text-[#8B8B95] space-y-2 select-none">
         <Target className="w-8 h-8 text-[#71717A] mx-auto opacity-50 mb-1" />
         <h3 className="text-[15px] font-semibold text-[#18181B]">No Monthly Targets Found</h3>
         <p className="text-[12.5px] text-[#71717A] max-w-sm mx-auto">
@@ -192,7 +192,7 @@ export function MonthlyTargetsList({
             {groupBy !== 'none' && (
               <div
                 onClick={() => toggleGroup(group.key)}
-                className="bg-[#FAFAFA] border-b border-[#E5E7EB] px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-[#F4F4F5] transition-colors"
+                className="bg-[#FAFAFA] border-b border-[#E5E7EB] px-3.5 sm:px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-[#F4F4F5] transition-colors"
               >
                 <div className="flex items-center gap-2">
                   {isCollapsed ? (
@@ -200,228 +200,401 @@ export function MonthlyTargetsList({
                   ) : (
                     <ChevronDown className="w-4 h-4 text-[#71717A]" />
                   )}
-                  <span className="text-[13px] font-bold text-[#18181B]">{group.title}</span>
-                  <span className="text-[11.5px] font-medium text-[#71717A] bg-[#E5E7EB] px-1.5 py-0.2 rounded-full">
+                  <span className="text-[13px] font-bold text-[#18181B] truncate max-w-[240px] sm:max-w-none">
+                    {group.title}
+                  </span>
+                  <span className="text-[11px] sm:text-[11.5px] font-medium text-[#71717A] bg-[#E5E7EB] px-1.5 py-0.2 rounded-full flex-shrink-0">
                     {group.items.length}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* Target Rows Table */}
+            {/* Content (Desktop Table + Mobile Cards) */}
             {!isCollapsed && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#E5E7EB] bg-[#FAFAFA] text-[11.5px] font-semibold text-[#71717A] uppercase tracking-wider">
-                      <th className="py-2.5 px-4 min-w-[240px]">Target</th>
-                      <th className="py-2.5 px-3 min-w-[120px]">Status</th>
-                      <th className="py-2.5 px-3 min-w-[140px]">Owner</th>
-                      <th className="py-2.5 px-3 min-w-[130px]">Progress / KPI</th>
-                      <th className="py-2.5 px-3 min-w-[130px]">Department</th>
-                      <th className="py-2.5 px-3 min-w-[110px]">Due Date</th>
-                      <th className="py-2.5 px-3 text-center w-[60px]">
-                        <MessageSquare className="w-3.5 h-3.5 mx-auto" />
-                      </th>
-                      <th className="py-2.5 px-3 text-right w-[60px]"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F4F4F5] text-[13px]">
-                    {group.items.map((target) => {
-                      const owner = userMap[target.owner_user_id];
-                      const dept = deptMap[target.department_id];
-                      const commentsCount = commentsCountMap[target.id] || 0;
-                      const unreadCount = unreadCommentsCountMap[target.id] || 0;
-                      const overdue = isTargetOverdue(target);
-                      const isKpi = target.type === 'kpi';
+              <>
+                {/* 1. Mobile Cards View (sm:hidden) */}
+                <div className="block sm:hidden divide-y divide-[#F4F4F5]">
+                  {group.items.map((target) => {
+                    const owner = userMap[target.owner_user_id];
+                    const dept = deptMap[target.department_id];
+                    const commentsCount = commentsCountMap[target.id] || 0;
+                    const unreadCount = unreadCommentsCountMap[target.id] || 0;
+                    const overdue = isTargetOverdue(target);
+                    const isKpi = target.type === 'kpi';
 
-                      return (
-                        <tr
-                          key={target.id}
-                          className="hover:bg-[#F9FAFB] transition-colors cursor-pointer group"
-                          onClick={() => onSelectTarget(target)}
-                        >
-                          {/* 1. Target Title & Type Badge */}
-                          <td className="py-3 px-4">
-                            <div className="flex items-start gap-2.5">
-                              <div className="pt-0.5 flex-shrink-0">
-                                {isKpi ? (
-                                  <div className="w-5 h-5 rounded-[4px] bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
-                                    <BarChart2 className="w-3 h-3" />
-                                  </div>
-                                ) : (
-                                  <div className="w-5 h-5 rounded-[4px] bg-emerald-50 text-[#059669] flex items-center justify-center border border-emerald-100">
-                                    <Target className="w-3 h-3" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-semibold text-[#18181B] group-hover:text-[#059669] transition-colors truncate max-w-md">
-                                  {target.title}
-                                </div>
-                                {target.description && (
-                                  <p className="text-[11.5px] text-[#71717A] truncate max-w-sm mt-0.5">
-                                    {target.description}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
+                    return (
+                      <div
+                        key={target.id}
+                        onClick={() => onSelectTarget(target)}
+                        className="p-3.5 space-y-2.5 hover:bg-[#F9FAFB] active:bg-[#F4F4F5] transition-colors cursor-pointer"
+                      >
+                        {/* Row 1: Type Badge, Dept Tag, and Status */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            {isKpi ? (
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100 uppercase flex-shrink-0">
+                                <BarChart2 className="w-2.5 h-2.5" />
+                                KPI
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-[#059669] border border-emerald-100 uppercase flex-shrink-0">
+                                <Target className="w-2.5 h-2.5" />
+                                Target
+                              </span>
+                            )}
 
-                          {/* 2. Status */}
-                          <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                            {dept && (
+                              <span
+                                className="text-[10.5px] font-medium px-1.5 py-0.5 rounded truncate max-w-[130px]"
+                                style={{
+                                  backgroundColor: dept?.color ? `${dept.color}15` : '#F4F4F5',
+                                  color: dept?.color || '#52525B',
+                                }}
+                              >
+                                {dept.name}
+                              </span>
+                            )}
+                          </div>
+
+                          <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
                             <select
                               value={target.status || 'not_started'}
                               onChange={(e) => onUpdateStatus(target.id, e.target.value)}
-                              className="bg-transparent text-[11.5px] font-semibold cursor-pointer border-0 rounded p-1 hover:bg-[#F4F4F5] focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                              className="bg-[#F4F4F5] text-[11px] font-semibold cursor-pointer border border-[#E5E7EB] rounded-[6px] px-2 py-0.5 hover:bg-[#EBEBEF] focus:outline-none focus:ring-1 focus:ring-[#059669]"
                             >
                               <option value="not_started">Not Started</option>
                               <option value="in_progress">In Progress</option>
                               <option value="completed">Completed</option>
                             </select>
-                          </td>
+                          </div>
+                        </div>
 
-                          {/* 3. Owner */}
-                          <td className="py-3 px-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Avatar
-                                src={owner?.avatar_url}
-                                name={owner?.full_name || 'Owner'}
-                                size="xs"
-                                className="flex-shrink-0"
-                              />
-                              <span className="text-[12.5px] font-medium text-[#18181B] truncate">
-                                {owner?.full_name || 'Unassigned'}
+                        {/* Row 2: Title & Description */}
+                        <div>
+                          <h4 className="text-[13.5px] font-semibold text-[#18181B] leading-snug">
+                            {target.title}
+                          </h4>
+                          {target.description && (
+                            <p className="text-[12px] text-[#71717A] line-clamp-2 mt-0.5 leading-relaxed">
+                              {target.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Row 3: Progress Bar / KPI Meter */}
+                        {isKpi ? (
+                          <div className="space-y-1 bg-[#FAFAFA] p-2 rounded-[6px] border border-[#F4F4F5]">
+                            <div className="flex items-center justify-between text-[11.5px] text-[#52525B]">
+                              <span className="font-medium">KPI Progress</span>
+                              <span className="font-semibold text-[#18181B]">
+                                {target.kpi_current_value ?? 0} / {target.kpi_target_value ?? 0}{' '}
+                                <span className="font-normal text-[#71717A]">
+                                  {target.kpi_unit || ''}
+                                </span>
                               </span>
                             </div>
-                          </td>
-
-                          {/* 4. Progress / KPI */}
-                          <td className="py-3 px-3">
-                            {isKpi ? (
-                              <div>
-                                <div className="text-[12px] font-semibold text-[#18181B]">
-                                  {target.kpi_current_value ?? 0} / {target.kpi_target_value ?? 0}{' '}
-                                  <span className="text-[11px] font-normal text-[#71717A]">
-                                    {target.kpi_unit || ''}
-                                  </span>
-                                </div>
-                                <div className="w-20 bg-[#F4F4F5] h-1.5 rounded-full overflow-hidden mt-1">
-                                  <div
-                                    className="h-full bg-purple-600 rounded-full transition-all duration-300"
-                                    style={{
-                                      width: `${
-                                        target.kpi_target_value > 0
-                                          ? Math.min(
-                                              Math.round(
-                                                ((target.kpi_current_value || 0) /
-                                                  target.kpi_target_value) *
-                                                  100
-                                              ),
+                            <div className="w-full bg-[#E5E7EB] h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-purple-600 rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${
+                                    target.kpi_target_value > 0
+                                      ? Math.min(
+                                          Math.round(
+                                            ((target.kpi_current_value || 0) /
+                                              target.kpi_target_value) *
                                               100
-                                            )
-                                          : 0
-                                      }%`,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <div className="text-[12px] font-semibold text-[#18181B]">
-                                  {target.progress || 0}%
-                                </div>
-                                <div className="w-20 bg-[#F4F4F5] h-1.5 rounded-full overflow-hidden mt-1">
-                                  <div
-                                    className={`h-full rounded-full transition-all duration-300 ${
-                                      target.status === 'completed'
-                                        ? 'bg-[#059669]'
-                                        : 'bg-[#2563EB]'
-                                    }`}
-                                    style={{ width: `${target.progress || 0}%` }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </td>
+                                          ),
+                                          100
+                                        )
+                                      : 0
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1 bg-[#FAFAFA] p-2 rounded-[6px] border border-[#F4F4F5]">
+                            <div className="flex items-center justify-between text-[11.5px] text-[#52525B]">
+                              <span className="font-medium">Target Progress</span>
+                              <span className="font-semibold text-[#18181B]">
+                                {target.progress || 0}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-[#E5E7EB] h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  target.status === 'completed'
+                                    ? 'bg-[#059669]'
+                                    : 'bg-[#2563EB]'
+                                }`}
+                                style={{ width: `${target.progress || 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
 
-                          {/* 5. Department */}
-                          <td className="py-3 px-3">
-                            <span
-                              className="inline-block text-[11.5px] font-medium px-2 py-0.5 rounded-[4px] truncate max-w-[120px]"
-                              style={{
-                                backgroundColor: dept?.color ? `${dept.color}15` : '#F4F4F5',
-                                color: dept?.color || '#52525B',
-                              }}
-                            >
-                              {dept?.name || 'General'}
+                        {/* Row 4: Owner, Due Date & Comments Footer */}
+                        <div className="flex items-center justify-between pt-1 text-[11.5px] text-[#71717A]">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Avatar
+                              src={owner?.avatar_url}
+                              name={owner?.full_name || 'Owner'}
+                              size="xs"
+                              className="flex-shrink-0"
+                            />
+                            <span className="font-medium text-[#18181B] truncate max-w-[110px]">
+                              {owner?.full_name || 'Unassigned'}
                             </span>
-                          </td>
+                          </div>
 
-                          {/* 7. Due Date */}
-                          <td className="py-3 px-3">
+                          <div className="flex items-center gap-3">
                             <div
-                              className={`text-[12px] font-mono ${
-                                overdue
-                                  ? 'text-[#DC2626] font-semibold'
-                                  : 'text-[#71717A]'
+                              className={`flex items-center gap-1 font-mono text-[11px] ${
+                                overdue ? 'text-[#DC2626] font-semibold' : 'text-[#71717A]'
                               }`}
                             >
-                              {formatDueDateDisplay(target.due_date)}
+                              <Calendar className="w-3 h-3" />
+                              <span>{formatDueDateDisplay(target.due_date)}</span>
                             </div>
-                          </td>
 
-                          {/* 8. Comments Count */}
-                          <td className="py-3 px-3 text-center">
-                            {commentsCount > 0 ? (
-                              <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-[#71717A] justify-center">
+                            {commentsCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[#71717A]">
                                 <MessageSquare
-                                  className={`w-3.5 h-3.5 ${
+                                  className={`w-3 h-3 ${
                                     unreadCount > 0 ? 'text-[#2563EB]' : 'text-[#71717A]'
                                   }`}
                                 />
                                 <span>{commentsCount}</span>
                                 {unreadCount > 0 && (
-                                  <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[9.5px] font-bold text-white bg-[#2563EB] shadow-xs">
+                                  <span className="inline-flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full text-[9px] font-bold text-white bg-[#2563EB] shadow-xs">
                                     {unreadCount > 9 ? '9+' : unreadCount}
                                   </span>
                                 )}
                               </span>
-                            ) : (
-                              <span className="text-[#D4D4D8]">—</span>
                             )}
-                          </td>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                          {/* 9. Row Action buttons */}
-                          <td
-                            className="py-3 px-3 text-right"
-                            onClick={(e) => e.stopPropagation()}
+                {/* 2. Desktop Table View (hidden sm:block) */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#E5E7EB] bg-[#FAFAFA] text-[11.5px] font-semibold text-[#71717A] uppercase tracking-wider">
+                        <th className="py-2.5 px-4 min-w-[240px]">Target</th>
+                        <th className="py-2.5 px-3 min-w-[120px]">Status</th>
+                        <th className="py-2.5 px-3 min-w-[140px]">Owner</th>
+                        <th className="py-2.5 px-3 min-w-[130px]">Progress / KPI</th>
+                        <th className="py-2.5 px-3 min-w-[130px]">Department</th>
+                        <th className="py-2.5 px-3 min-w-[110px]">Due Date</th>
+                        <th className="py-2.5 px-3 text-center w-[60px]">
+                          <MessageSquare className="w-3.5 h-3.5 mx-auto" />
+                        </th>
+                        <th className="py-2.5 px-3 text-right w-[60px]"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F4F4F5] text-[13px]">
+                      {group.items.map((target) => {
+                        const owner = userMap[target.owner_user_id];
+                        const dept = deptMap[target.department_id];
+                        const commentsCount = commentsCountMap[target.id] || 0;
+                        const unreadCount = unreadCommentsCountMap[target.id] || 0;
+                        const overdue = isTargetOverdue(target);
+                        const isKpi = target.type === 'kpi';
+
+                        return (
+                          <tr
+                            key={target.id}
+                            className="hover:bg-[#F9FAFB] transition-colors cursor-pointer group"
+                            onClick={() => onSelectTarget(target)}
                           >
-                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => onEditTarget(target)}
-                                className="p-1 rounded text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors"
-                                title="Edit Target"
+                            {/* 1. Target Title & Type Badge */}
+                            <td className="py-3 px-4">
+                              <div className="flex items-start gap-2.5">
+                                <div className="pt-0.5 flex-shrink-0">
+                                  {isKpi ? (
+                                    <div className="w-5 h-5 rounded-[4px] bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
+                                      <BarChart2 className="w-3 h-3" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-5 h-5 rounded-[4px] bg-emerald-50 text-[#059669] flex items-center justify-center border border-emerald-100">
+                                      <Target className="w-3 h-3" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-[#18181B] group-hover:text-[#059669] transition-colors truncate max-w-md">
+                                    {target.title}
+                                  </div>
+                                  {target.description && (
+                                    <p className="text-[11.5px] text-[#71717A] truncate max-w-sm mt-0.5">
+                                      {target.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 2. Status */}
+                            <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={target.status || 'not_started'}
+                                onChange={(e) => onUpdateStatus(target.id, e.target.value)}
+                                className="bg-transparent text-[11.5px] font-semibold cursor-pointer border-0 rounded p-1 hover:bg-[#F4F4F5] focus:outline-none focus:ring-1 focus:ring-[#059669]"
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onDeleteTarget(target.id)}
-                                className="p-1 rounded text-[#71717A] hover:text-[#DC2626] hover:bg-red-50 transition-colors"
-                                title="Delete Target"
+                                <option value="not_started">Not Started</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                              </select>
+                            </td>
+
+                            {/* 3. Owner */}
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Avatar
+                                  src={owner?.avatar_url}
+                                  name={owner?.full_name || 'Owner'}
+                                  size="xs"
+                                  className="flex-shrink-0"
+                                />
+                                <span className="text-[12.5px] font-medium text-[#18181B] truncate">
+                                  {owner?.full_name || 'Unassigned'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 4. Progress / KPI */}
+                            <td className="py-3 px-3">
+                              {isKpi ? (
+                                <div>
+                                  <div className="text-[12px] font-semibold text-[#18181B]">
+                                    {target.kpi_current_value ?? 0} / {target.kpi_target_value ?? 0}{' '}
+                                    <span className="text-[11px] font-normal text-[#71717A]">
+                                      {target.kpi_unit || ''}
+                                    </span>
+                                  </div>
+                                  <div className="w-20 bg-[#F4F4F5] h-1.5 rounded-full overflow-hidden mt-1">
+                                    <div
+                                      className="h-full bg-purple-600 rounded-full transition-all duration-300"
+                                      style={{
+                                        width: `${
+                                          target.kpi_target_value > 0
+                                            ? Math.min(
+                                                Math.round(
+                                                  ((target.kpi_current_value || 0) /
+                                                    target.kpi_target_value) *
+                                                    100
+                                                ),
+                                                100
+                                              )
+                                            : 0
+                                        }%`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-[12px] font-semibold text-[#18181B]">
+                                    {target.progress || 0}%
+                                  </div>
+                                  <div className="w-20 bg-[#F4F4F5] h-1.5 rounded-full overflow-hidden mt-1">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-300 ${
+                                        target.status === 'completed'
+                                          ? 'bg-[#059669]'
+                                          : 'bg-[#2563EB]'
+                                      }`}
+                                      style={{ width: `${target.progress || 0}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* 5. Department */}
+                            <td className="py-3 px-3">
+                              <span
+                                className="inline-block text-[11.5px] font-medium px-2 py-0.5 rounded-[4px] truncate max-w-[120px]"
+                                style={{
+                                  backgroundColor: dept?.color ? `${dept.color}15` : '#F4F4F5',
+                                  color: dept?.color || '#52525B',
+                                }}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                {dept?.name || 'General'}
+                              </span>
+                            </td>
+
+                            {/* 7. Due Date */}
+                            <td className="py-3 px-3">
+                              <div
+                                className={`text-[12px] font-mono ${
+                                  overdue
+                                    ? 'text-[#DC2626] font-semibold'
+                                    : 'text-[#71717A]'
+                                }`}
+                              >
+                                {formatDueDateDisplay(target.due_date)}
+                              </div>
+                            </td>
+
+                            {/* 8. Comments Count */}
+                            <td className="py-3 px-3 text-center">
+                              {commentsCount > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-[#71717A] justify-center">
+                                  <MessageSquare
+                                    className={`w-3.5 h-3.5 ${
+                                      unreadCount > 0 ? 'text-[#2563EB]' : 'text-[#71717A]'
+                                    }`}
+                                  />
+                                  <span>{commentsCount}</span>
+                                  {unreadCount > 0 && (
+                                    <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[9.5px] font-bold text-white bg-[#2563EB] shadow-xs">
+                                      {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-[#D4D4D8]">—</span>
+                              )}
+                            </td>
+
+                            {/* 9. Row Action buttons */}
+                            <td
+                              className="py-3 px-3 text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                 type="button"
+                                  onClick={() => onEditTarget(target)}
+                                  className="p-1 rounded text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors"
+                                  title="Edit Target"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteTarget(target.id)}
+                                  className="p-1 rounded text-[#71717A] hover:text-[#DC2626] hover:bg-red-50 transition-colors"
+                                  title="Delete Target"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         );
@@ -429,3 +602,5 @@ export function MonthlyTargetsList({
     </div>
   );
 }
+
+export default MonthlyTargetsList;

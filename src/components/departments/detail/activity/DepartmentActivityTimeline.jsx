@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Avatar } from '../../../common/Avatar';
 import {
   Activity,
@@ -19,7 +19,7 @@ export function DepartmentActivityTimeline({
 
   if (groupedActivities.length === 0) {
     return (
-      <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-12 text-center text-[#8B8B95] space-y-3 select-none">
+      <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-8 sm:p-12 text-center text-[#8B8B95] space-y-3 select-none">
         {hasActiveFilters ? (
           <>
             <FilterX className="w-8 h-8 text-[#71717A] mx-auto opacity-50 mb-1" />
@@ -78,20 +78,20 @@ export function DepartmentActivityTimeline({
   };
 
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-5 sm:p-7 shadow-none select-none max-w-full">
-      <div className="space-y-8">
-        {visibleGroups.map((group, groupIdx) => {
+    <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-3.5 sm:p-7 shadow-none select-none max-w-full">
+      <div className="space-y-6 sm:space-y-8">
+        {visibleGroups.map((group) => {
           const isTodayGroup = group.isToday;
 
           return (
-            <div key={group.key} className="space-y-4">
+            <div key={group.key} className="space-y-3 sm:space-y-4">
               {/* Date Header */}
-              <h3 className="text-[12px] font-bold text-[#71717A] uppercase tracking-wider select-none">
+              <h3 className="text-[11px] sm:text-[12px] font-bold text-[#71717A] uppercase tracking-wider select-none">
                 {group.label}
               </h3>
 
               {/* Items List with Timeline Connector */}
-              <div className="relative space-y-6">
+              <div className="relative space-y-4 sm:space-y-6">
                 {group.items.map((item, itemIdx) => {
                   const isLastItem = itemIdx === group.items.length - 1;
                   const dotColor = isTodayGroup ? 'bg-[#16A34A]' : 'bg-[#A1A1AA]';
@@ -99,10 +99,10 @@ export function DepartmentActivityTimeline({
                   return (
                     <div
                       key={item.id}
-                      className="relative flex items-start gap-3 sm:gap-4 group"
+                      className="relative flex items-start gap-2.5 sm:gap-4 group"
                     >
-                      {/* 1. Time Column (e.g. 10:42 AM) */}
-                      <div className="w-16 sm:w-20 text-right text-[12px] sm:text-[12.5px] font-medium text-[#71717A] pt-1 flex-shrink-0 font-mono">
+                      {/* 1. Time Column (Desktop Only e.g. 10:42 AM) */}
+                      <div className="hidden sm:block w-16 sm:w-20 text-right text-[12px] sm:text-[12.5px] font-medium text-[#71717A] pt-1 flex-shrink-0 font-mono">
                         {item.timeFormatted || '—'}
                       </div>
 
@@ -117,7 +117,7 @@ export function DepartmentActivityTimeline({
                         {/* Vertical line downwards (except if last item of group) */}
                         {!isLastItem && (
                           <div
-                            className="absolute top-3 bottom-[-24px] w-[1px] bg-[#E5E7EB]"
+                            className="absolute top-3 bottom-[-18px] sm:bottom-[-24px] w-[1px] bg-[#E5E7EB]"
                             aria-hidden="true"
                           />
                         )}
@@ -129,47 +129,54 @@ export function DepartmentActivityTimeline({
                           src={item.actor?.avatar_url}
                           name={item.actor?.full_name || 'Team Member'}
                           size="sm"
-                          className="w-8 h-8 sm:w-9 sm:h-9"
+                          className="w-7 h-7 sm:w-9 sm:h-9"
                         />
                       </div>
 
                       {/* 4. Event Content */}
                       <div className="min-w-0 flex-1 pt-0.5 text-left">
-                        {/* Line 1: Primary Action Sentence */}
-                        <div className="text-[13px] sm:text-[13.5px] leading-snug text-[#18181B]">
-                          <span className="font-semibold text-[#18181B] mr-1">
-                            {item.actor?.full_name || 'Team Member'}
-                          </span>
-                          <span className="text-[#52525B] mr-1">{item.verb}</span>
-
-                          {item.taskNumber && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const targetId = item.task?.id || item.rawLog?.entity_id || item.rawLog?.metadata?.task_id;
-                                if (targetId && onTaskClick) {
-                                  onTaskClick(targetId);
-                                }
-                              }}
-                              className="font-semibold text-[#2563EB] hover:underline font-mono inline-flex items-center cursor-pointer mr-1"
-                              title={`Open ${item.taskNumber}`}
-                            >
-                              {item.taskNumber}
-                            </button>
-                          )}
-
-                          {item.targetSubject && (
-                            <span className="text-[#18181B] font-normal">
-                              {item.targetSubject}
+                        {/* Line 1: Primary Action Sentence with Mobile Time */}
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="text-[12.5px] sm:text-[13.5px] leading-snug text-[#18181B] min-w-0 flex-1 break-words">
+                            <span className="font-semibold text-[#18181B] mr-1">
+                              {item.actor?.full_name || 'Team Member'}
                             </span>
-                          )}
+                            <span className="text-[#52525B] mr-1">{item.verb}</span>
+
+                            {item.taskNumber && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const targetId = item.task?.id || item.rawLog?.entity_id || item.rawLog?.metadata?.task_id;
+                                  if (targetId && onTaskClick) {
+                                    onTaskClick(targetId);
+                                  }
+                                }}
+                                className="font-semibold text-[#2563EB] hover:underline font-mono inline cursor-pointer mr-1 break-words"
+                                title={`Open ${item.taskNumber}`}
+                              >
+                                {item.taskNumber}
+                              </button>
+                            )}
+
+                            {item.targetSubject && (
+                              <span className="text-[#18181B] font-normal break-words">
+                                {item.targetSubject}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Time on mobile */}
+                          <span className="sm:hidden text-[11px] font-medium text-[#71717A] tabular-nums font-mono flex-shrink-0 whitespace-nowrap pt-0.5">
+                            {item.timeFormatted || '—'}
+                          </span>
                         </div>
 
                         {/* Line 2: Secondary Metadata (Status transition, attachment, completion tag) */}
                         {item.secondary && (
                           <div className="mt-1">
                             {item.secondary.type === 'status_transition' && (
-                              <div className="flex items-center gap-1.5 text-[12px] font-medium">
+                              <div className="flex items-center gap-1.5 text-[11px] sm:text-[12px] font-medium">
                                 {item.secondary.from && (
                                   <>
                                     <span className="text-[#71717A]">{item.secondary.from}</span>
@@ -191,19 +198,19 @@ export function DepartmentActivityTimeline({
                             )}
 
                             {item.secondary.type === 'attachment' && (
-                              <div className="flex items-center gap-1.5 text-[12px] text-[#52525B]">
+                              <div className="flex items-center gap-1.5 text-[11px] sm:text-[12px] text-[#52525B]">
                                 <Paperclip className="w-3.5 h-3.5 text-[#71717A] flex-shrink-0" />
                                 {item.secondary.url ? (
                                   <a
                                     href={item.secondary.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="font-medium text-[#2563EB] hover:underline truncate max-w-sm"
+                                    className="font-medium text-[#2563EB] hover:underline truncate max-w-[200px] sm:max-w-sm"
                                   >
                                     {item.secondary.name}
                                   </a>
                                 ) : (
-                                  <span className="font-medium truncate max-w-sm">
+                                  <span className="font-medium truncate max-w-[200px] sm:max-w-sm">
                                     {item.secondary.name}
                                   </span>
                                 )}
@@ -211,26 +218,26 @@ export function DepartmentActivityTimeline({
                             )}
 
                             {item.secondary.type === 'completion_badge' && (
-                              <div className="text-[12px] text-[#059669] font-medium">
+                              <div className="text-[11px] sm:text-[12px] text-[#059669] font-medium">
                                 {item.secondary.label}
                               </div>
                             )}
 
                             {item.secondary.type === 'deletion_badge' && (
-                              <div className="text-[12px] text-[#DC2626] font-medium">
+                              <div className="text-[11px] sm:text-[12px] text-[#DC2626] font-medium">
                                 {item.secondary.label}
                                 {item.secondary.reason ? ` (${item.secondary.reason})` : ''}
                               </div>
                             )}
 
                             {item.secondary.type === 'comment' && (
-                              <div className="text-[12px] text-[#71717A] italic line-clamp-1">
+                              <div className="text-[11px] sm:text-[12px] text-[#71717A] italic line-clamp-1">
                                 &ldquo;{item.secondary.text}&rdquo;
                               </div>
                             )}
 
                             {item.secondary.type === 'priority_transition' && (
-                              <div className="flex items-center gap-1 text-[12px] text-[#52525B]">
+                              <div className="flex items-center gap-1 text-[11px] sm:text-[12px] text-[#52525B]">
                                 <span>{item.secondary.from}</span>
                                 <span>→</span>
                                 <span className="font-semibold text-[#18181B]">
@@ -252,11 +259,11 @@ export function DepartmentActivityTimeline({
 
       {/* Footer: Load earlier activity */}
       {hasMore && (
-        <div className="border-t border-[#F4F4F5] pt-5 mt-6 text-left">
+        <div className="border-t border-[#F4F4F5] pt-4 sm:pt-5 mt-5 sm:mt-6 text-left">
           <button
             type="button"
             onClick={handleLoadMore}
-            className="text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8] hover:underline transition-colors cursor-pointer inline-flex items-center gap-1"
+            className="text-[12.5px] sm:text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8] hover:underline transition-colors cursor-pointer inline-flex items-center gap-1"
           >
             <span>Load earlier activity</span>
             <ChevronDown className="w-3.5 h-3.5" />
@@ -266,3 +273,5 @@ export function DepartmentActivityTimeline({
     </div>
   );
 }
+
+export default DepartmentActivityTimeline;
