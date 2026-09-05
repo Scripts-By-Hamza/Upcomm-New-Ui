@@ -10,6 +10,7 @@ import { TaskDetailDrawer } from '../tasks/detail/TaskDetailDrawer';
 import { EditTaskDrawer } from '../tasks/edit/EditTaskDrawer';
 import { CreateTaskDrawer } from '../tasks/create/CreateTaskDrawer';
 import { CreatePersonalTaskModal } from '../kanban/CreatePersonalTaskModal';
+import { MobileFloatingActionButton } from './MobileFloatingActionButton';
 import { useAppData } from '../../contexts/AppDataContext';
 
 export function AppLayout() {
@@ -147,17 +148,11 @@ export function AppLayout() {
         />
       )}
 
-      {/* Mobile Floating Action Button (FAB) for Add Task */}
+      {/* Mobile Floating Action Button (FAB) with 90° Radial Fan-Out Menu */}
       {!isMessagesPage && location.pathname !== '/tasks/create' && (
-        <button
-          type="button"
-          onClick={() => navigate('/tasks/create')}
-          aria-label="Add Task"
-          title="Add Task"
-          className="sm:hidden fixed bottom-6 right-5 z-40 w-12 h-12 rounded-full bg-[#059669] hover:bg-[#047857] active:scale-95 text-white flex items-center justify-center shadow-[0_8px_24px_rgba(5,150,105,0.4)] transition-all cursor-pointer border border-[#047857]/20"
-        >
-          <Plus className="w-6 h-6 stroke-[2.5]" />
-        </button>
+        <MobileFloatingActionButton
+          onOpenCreatePersonalTask={() => setGlobalCreatePersonalTaskOpen(true)}
+        />
       )}
     </div>
   );

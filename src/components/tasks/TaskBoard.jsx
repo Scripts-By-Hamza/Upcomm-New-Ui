@@ -221,7 +221,7 @@ export function TaskBoard({
       )}
 
       {/* Mobile Status Tabs (< md) */}
-      <div className="flex md:hidden items-center gap-1.5 p-1 bg-[#F4F4F5] rounded-[10px] border border-[#E5E7EB]">
+      <div className="flex md:hidden items-center gap-1.5 p-1.5 bg-white dark:bg-[#18181B] rounded-[12px] border border-[#E5E7EB] dark:border-[#27272A] select-none shadow-2xs">
         {COLUMNS.map((col) => {
           const isActive = mobileActiveTab === col.id;
           const count = columnData[col.id]?.length || 0;
@@ -231,18 +231,18 @@ export function TaskBoard({
               key={col.id}
               type="button"
               onClick={() => setMobileActiveTab(col.id)}
-              className={`flex-1 py-1.5 px-2 rounded-[7px] text-[12px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-2 px-2.5 rounded-[9px] text-[12px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer outline-none focus:outline-none whitespace-nowrap min-w-0 ${
                 isActive
-                  ? 'bg-white text-[#18181B] font-semibold shadow-2xs'
-                  : 'text-[#71717A] hover:text-[#18181B]'
+                  ? 'bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] shadow-xs'
+                  : 'text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F4F4F5] hover:bg-[#F4F4F5]/60 dark:hover:bg-[#27272A]/60'
               }`}
             >
-              <span>{col.title}</span>
+              <span className="truncate">{col.title}</span>
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                className={`text-[10px] px-1.5 py-0.5 min-w-[18px] text-center rounded-full font-bold inline-flex items-center justify-center flex-shrink-0 ${
                   isActive
-                    ? 'bg-[#E4E4E7] text-[#18181B]'
-                    : 'bg-[#E4E4E7]/60 text-[#71717A]'
+                    ? 'bg-white/20 dark:bg-black/20 text-white dark:text-[#18181B]'
+                    : 'bg-[#F4F4F5] dark:bg-[#27272A] text-[#52525B] dark:text-[#C4C7CE]'
                 }`}
               >
                 {count}

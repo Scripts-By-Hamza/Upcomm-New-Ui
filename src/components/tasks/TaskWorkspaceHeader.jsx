@@ -56,10 +56,10 @@ export function TaskWorkspaceHeader({
                     onViewChange(tab.id);
                   }
                 }}
-                className={`pb-2.5 text-[13.5px] font-medium transition-colors relative cursor-pointer ${
+                className={`pb-2.5 text-[13.5px] font-medium transition-colors relative cursor-pointer outline-none focus:outline-none focus-visible:outline-none select-none ${
                   isActive
-                    ? 'text-[#18181B] font-semibold'
-                    : 'text-[#71717A] hover:text-[#18181B]'
+                    ? 'text-[#18181B] font-semibold dark:text-[#F4F4F5]'
+                    : 'text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F4F4F5]'
                 }`}
               >
                 <span>{tab.label}</span>

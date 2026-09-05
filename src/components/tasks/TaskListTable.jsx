@@ -84,7 +84,7 @@ export function TaskListTable({
   }
 
   // Grouping logic if selectedGroup !== 'none'
-  const renderGroupedRows = () => {
+  const computeGroups = () => {
     const groups = {};
 
     tasks.forEach((task) => {
@@ -118,19 +118,25 @@ export function TaskListTable({
       groups[groupKey].push(task);
     });
 
+    return groups;
+  };
+
+  const renderGroupedRows = () => {
+    const groups = computeGroups();
+
     return Object.keys(groups).map((groupTitle) => {
       const groupTasks = groups[groupTitle];
 
       return (
         <React.Fragment key={groupTitle}>
           {/* Group Header Row */}
-          <tr className="bg-[#F8F9FA] border-y border-[#E5E7EB]">
+          <tr className="bg-[#F8F9FA] dark:bg-[#1F2227] border-y border-[#E5E7EB] dark:border-[#27272A]">
             <td colSpan={10} className="py-2 px-4">
               <div className="flex items-center gap-2">
-                <span className="text-[12px] font-bold text-[#18181B]">
+                <span className="text-[12px] font-bold text-[#18181B] dark:text-[#F4F4F5] tracking-wider uppercase">
                   {groupTitle}
                 </span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10.5px] font-semibold bg-[#E4E4E7] text-[#52525B]">
+                <span className="px-1.5 py-0.2 rounded-full text-[10.5px] font-semibold bg-[#E4E4E7] dark:bg-[#2A2E34] text-[#52525B] dark:text-[#C4C7CE]">
                   {groupTasks.length}
                 </span>
               </div>
@@ -162,13 +168,54 @@ export function TaskListTable({
     });
   };
 
+  const renderMobileGroupedRows = () => {
+    const groups = computeGroups();
+
+    return Object.keys(groups).map((groupTitle) => {
+      const groupTasks = groups[groupTitle];
+
+      return (
+        <div key={groupTitle} className="border-b border-[#E5E7EB] dark:border-[#27272A] last:border-b-0">
+          <div className="px-3.5 py-2 bg-[#F8F9FA] dark:bg-[#1F2227] flex items-center justify-between">
+            <span className="text-[12px] font-bold text-[#18181B] dark:text-[#F4F4F5] tracking-wider uppercase">
+              {groupTitle}
+            </span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10.5px] font-semibold bg-[#E4E4E7] dark:bg-[#2A2E34] text-[#52525B] dark:text-[#C4C7CE]">
+              {groupTasks.length}
+            </span>
+          </div>
+
+          <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+            {groupTasks.map((task) => (
+              <TaskMobileRow
+                key={task.id}
+                task={task}
+                currentUser={currentUser}
+                users={users}
+                departments={departments}
+                completionRequests={completionRequests}
+                readChatIds={readChatIds}
+                onUpdateStatus={onUpdateStatus}
+                onRequestCompletion={onRequestCompletion}
+                onRequestDelete={onRequestDelete}
+                onDirectDelete={onDirectDelete}
+                onOpenTask={onOpenTask}
+                onEditTask={onEditTask}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    });
+  };
+
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-t-[10px] shadow-none overflow-hidden select-none">
-      {/* Desktop Table View */}
+    <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-t-[10px] shadow-none overflow-hidden select-none">
+      {/* Desktop Table View (md: and up) */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="h-10 bg-white border-b border-[#E5E7EB] text-[12px] text-[#71717A] font-medium">
+            <tr className="h-10 bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[12px] text-[#71717A] dark:text-[#A1A1AA] font-medium">
               {/* Columns */}
               <th className="pl-4 py-2 pr-3 font-medium min-w-[220px]">Task</th>
               {visibleColumns.status !== false && (
@@ -223,22 +270,28 @@ export function TaskListTable({
       </div>
 
       {/* Mobile Card / Row View (< md) */}
-      <div className="md:hidden divide-y divide-[#E5E7EB]">
-        {tasks.map((task) => (
-          <TaskMobileRow
-            key={task.id}
-            task={task}
-            currentUser={currentUser}
-            users={users}
-            departments={departments}
-            completionRequests={completionRequests}
-            readChatIds={readChatIds}
-            onRequestDelete={onRequestDelete}
-            onDirectDelete={onDirectDelete}
-            onOpenTask={onOpenTask}
-            onEditTask={onEditTask}
-          />
-        ))}
+      <div className="md:hidden divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+        {selectedGroup !== 'none' ? (
+          renderMobileGroupedRows()
+        ) : (
+          tasks.map((task) => (
+            <TaskMobileRow
+              key={task.id}
+              task={task}
+              currentUser={currentUser}
+              users={users}
+              departments={departments}
+              completionRequests={completionRequests}
+              readChatIds={readChatIds}
+              onUpdateStatus={onUpdateStatus}
+              onRequestCompletion={onRequestCompletion}
+              onRequestDelete={onRequestDelete}
+              onDirectDelete={onDirectDelete}
+              onOpenTask={onOpenTask}
+              onEditTask={onEditTask}
+            />
+          ))
+        )}
       </div>
     </div>
   );

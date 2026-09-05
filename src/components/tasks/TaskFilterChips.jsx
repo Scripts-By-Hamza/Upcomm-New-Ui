@@ -131,17 +131,17 @@ export function TaskFilterChips({
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap pt-1 select-none">
+    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap pt-1 select-none py-0.5">
       {chips.map((chip) => (
         <span
           key={chip.id}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-[12px] font-medium bg-[#F4F4F5] text-[#18181B] border border-[#E4E4E7] transition-all"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[6px] text-[12px] font-medium bg-[#F4F4F5] dark:bg-[#1F2227] text-[#18181B] dark:text-[#F4F4F5] border border-[#E4E4E7] dark:border-[#2A2E34] transition-all flex-shrink-0 whitespace-nowrap"
         >
           <span>{chip.label}</span>
           <button
             type="button"
             onClick={chip.onRemove}
-            className="p-0.5 hover:bg-[#E4E4E7] rounded text-[#71717A] hover:text-[#18181B] cursor-pointer"
+            className="p-0.5 hover:bg-[#E4E4E7] dark:hover:bg-[#2A2E34] rounded text-[#71717A] hover:text-[#18181B] dark:hover:text-[#F4F4F5] cursor-pointer outline-none"
             aria-label={`Remove filter ${chip.label}`}
           >
             <X className="w-3 h-3" />
@@ -152,7 +152,7 @@ export function TaskFilterChips({
       <button
         type="button"
         onClick={onClearAll}
-        className="text-[12px] font-medium text-[#059669] hover:text-[#047857] hover:underline cursor-pointer ml-1"
+        className="text-[12px] font-medium text-[#059669] dark:text-[#34D399] hover:text-[#047857] hover:underline cursor-pointer ml-1 flex-shrink-0 whitespace-nowrap outline-none"
       >
         Clear all
       </button>

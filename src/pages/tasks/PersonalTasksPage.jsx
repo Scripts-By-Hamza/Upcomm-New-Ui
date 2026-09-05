@@ -51,20 +51,16 @@ export function PersonalTasksPage() {
           <h1 className="text-2xl sm:text-[26px] font-bold text-[#18181B] tracking-tight">
             Personal Tasks
           </h1>
-          <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[13.5px] text-[#71717A]">
-            <span>Private tasks visible only to you.</span>
-            <span className="flex items-center gap-1 text-[#8B8B95]">
-              <Lock className="w-3.5 h-3.5 text-[#8B8B95]" />
-              <span>Only you can see these tasks</span>
-            </span>
-          </div>
+          <p className="text-[13.5px] text-[#71717A] mt-0.5">
+            Private tasks visible only to you.
+          </p>
         </div>
 
-        {/* Top Right Action: Outlined Add Personal Task Button */}
+        {/* Top Right Action: Outlined Add Personal Task Button (Desktop only, hidden on mobile) */}
         <button
           type="button"
           onClick={() => handleOpenCreateModal('pending')}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-[#ECFDF5] text-[#059669] border border-[#059669] rounded-[8px] text-[13px] font-semibold transition-colors cursor-pointer shadow-none flex-shrink-0 self-start sm:self-center"
+          className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-[#18181B] hover:bg-[#ECFDF5] dark:hover:bg-[#064E3B]/20 text-[#059669] dark:text-[#34D399] border border-[#059669] dark:border-[#059669]/50 rounded-[8px] text-[13px] font-semibold transition-colors cursor-pointer shadow-none flex-shrink-0 self-start sm:self-center"
         >
           <Plus className="w-4 h-4" />
           <span>Add Personal Task</span>
