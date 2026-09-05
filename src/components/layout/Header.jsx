@@ -134,6 +134,15 @@ export function Header({
     if (path === '/activity') {
       return [{ label: 'Management', to: '/dashboard' }, { label: 'Activity' }];
     }
+    if (path === '/monthly-targets' || path.startsWith('/monthly-targets') || path === '/performance/monthly-targets') {
+      return [{ label: 'Performance', to: '/monthly-targets' }, { label: 'Monthly Targets & KPIs' }];
+    }
+    if (path === '/messages') {
+      return [{ label: 'Communication', to: '/messages' }, { label: 'Messages' }];
+    }
+    if (path === '/management/message-reports' || path === '/message-reports') {
+      return [{ label: 'Management', to: '/dashboard' }, { label: 'Message Reports' }];
+    }
     if (path === '/profile') {
       return [{ label: 'Account', to: '/dashboard' }, { label: 'Profile' }];
     }

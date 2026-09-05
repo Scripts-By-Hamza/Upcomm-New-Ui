@@ -111,6 +111,78 @@ export function AdminDashboardView() {
     }).length;
   }, [filteredTasks, currentUser]);
 
+  // In-progress breakdowns for the logged-in user
+  const inProgressCreatedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter(
+      (t) =>
+        t.status === 'in_progress' &&
+        (t.created_by === currentUser.id || t.assigned_by === currentUser.id)
+    ).length;
+  }, [filteredTasks, currentUser]);
+
+  const inProgressAssignedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter((t) => {
+      if (t.status !== 'in_progress') return false;
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredTasks, currentUser]);
+
+  // Overdue breakdowns for the logged-in user
+  const overdueCreatedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter(
+      (t) =>
+        isTaskOverdue(t.due_date, t.status) &&
+        (t.created_by === currentUser.id || t.assigned_by === currentUser.id)
+    ).length;
+  }, [filteredTasks, currentUser]);
+
+  const overdueAssignedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter((t) => {
+      if (!isTaskOverdue(t.due_date, t.status)) return false;
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredTasks, currentUser]);
+
+  // Completed breakdowns for the logged-in user
+  const completedCreatedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter(
+      (t) =>
+        t.status === 'completed' &&
+        (t.created_by === currentUser.id || t.assigned_by === currentUser.id)
+    ).length;
+  }, [filteredTasks, currentUser]);
+
+  const completedAssignedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredTasks.filter((t) => {
+      if (t.status !== 'completed') return false;
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredTasks, currentUser]);
+
   // Calculate tasks created in the past 7 days for truthful trend
   const createdThisWeekCount = useMemo(() => {
     const oneWeekAgo = new Date();
@@ -168,6 +240,12 @@ export function AdminDashboardView() {
         createdThisWeekCount={createdThisWeekCount}
         createdByCount={createdByCurrentUserCount}
         assignedToCount={assignedToCurrentUserCount}
+        inProgressCreatedCount={inProgressCreatedCount}
+        inProgressAssignedCount={inProgressAssignedCount}
+        overdueCreatedCount={overdueCreatedCount}
+        overdueAssignedCount={overdueAssignedCount}
+        completedCreatedCount={completedCreatedCount}
+        completedAssignedCount={completedAssignedCount}
       />
 
       {/* 3. Main Two-Column Balanced Grid */}

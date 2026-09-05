@@ -6,11 +6,24 @@ import { INITIAL_ACTIVITY_LOGS, INITIAL_SETTINGS, INITIAL_PERMISSIONS, INITIAL_I
 import { INITIAL_REPORTS } from '../data/dummyReports';
 import { INITIAL_PERSONAL_TASKS } from '../data/dummyPersonalTasks';
 import { INITIAL_MONTHLY_TARGETS, INITIAL_MONTHLY_TARGET_COMMENTS } from '../data/dummyMonthlyTargets';
+import {
+  INITIAL_CONVERSATIONS,
+  INITIAL_CONVERSATION_PARTICIPANTS,
+  INITIAL_MESSAGES,
+  INITIAL_MESSAGE_REPORTS,
+} from '../data/dummyMessages';
 import { calculateMonthEndDate } from '../utils/monthlyTargets/monthlyTargetUtils';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { canReviewCompletionRequest, canReviewDeleteRequest } from '../utils/rbac/permissionManager';
-import { playNotificationChime } from '../utils/audio/notificationSound';
+import {
+  playNotificationSound,
+  preloadNotificationSound,
+  initNotificationAudioUnlock,
+  resetNotificationAudioState,
+  SOUND_ENABLED_EVENT_TYPES,
+  playNotificationChime,
+} from '../utils/audio/notificationSound';
 
 const AppDataContext = createContext(null);
 
@@ -144,6 +157,120 @@ export function AppDataProvider({ children }) {
     } catch (e) {}
   }, [monthlyTargetComments]);
 
+  // Dedicated state for Private Messaging, Groups, Broadcast & Moderation
+  const [conversations, setConversations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('upcomm_conversations');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return INITIAL_CONVERSATIONS;
+    } catch (e) {
+      return INITIAL_CONVERSATIONS;
+    }
+  });
+
+  const [conversationParticipants, setConversationParticipants] = useState(() => {
+    try {
+      const saved = localStorage.getItem('upcomm_conversation_participants');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return INITIAL_CONVERSATION_PARTICIPANTS;
+    } catch (e) {
+      return INITIAL_CONVERSATION_PARTICIPANTS;
+    }
+  });
+
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('upcomm_messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return INITIAL_MESSAGES;
+    } catch (e) {
+      return INITIAL_MESSAGES;
+    }
+  });
+
+  const [messageReports, setMessageReports] = useState(() => {
+    try {
+      const saved = localStorage.getItem('upcomm_message_reports');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return INITIAL_MESSAGE_REPORTS;
+    } catch (e) {
+      return INITIAL_MESSAGE_REPORTS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('upcomm_conversations', JSON.stringify(conversations));
+    } catch (e) {}
+  }, [conversations]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('upcomm_conversation_participants', JSON.stringify(conversationParticipants));
+    } catch (e) {}
+  }, [conversationParticipants]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('upcomm_messages', JSON.stringify(messages));
+    } catch (e) {}
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('upcomm_message_reports', JSON.stringify(messageReports));
+    } catch (e) {}
+  }, [messageReports]);
+
+  // Synchronized refs for realtime listeners & sound evaluations
+  const tasksRef = useRef(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  const conversationsRef = useRef(conversations);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  const conversationParticipantsRef = useRef(conversationParticipants);
+  useEffect(() => {
+    conversationParticipantsRef.current = conversationParticipants;
+  }, [conversationParticipants]);
+
+  const realtimeReadyRef = useRef(false);
+
+  // Initialize centralized notification audio preload & unlock on authentication
+  useEffect(() => {
+    if (!currentUser) {
+      resetNotificationAudioState();
+      realtimeReadyRef.current = false;
+    } else {
+      initNotificationAudioUnlock();
+      preloadNotificationSound();
+    }
+  }, [currentUser?.id]);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(new Date());
 
@@ -179,6 +306,10 @@ export function AppDataProvider({ children }) {
         supabase.from('task_completion_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('monthly_targets').select('*').order('created_at', { ascending: false }),
         supabase.from('monthly_target_comments').select('*').order('created_at', { ascending: true }),
+        supabase.from('conversations').select('*').order('updated_at', { ascending: false }),
+        supabase.from('conversation_participants').select('*'),
+        supabase.from('messages').select('*').order('created_at', { ascending: true }),
+        supabase.from('message_reports').select('*').order('created_at', { ascending: false }),
       ];
 
       if (currentUser?.id) {
@@ -210,6 +341,10 @@ export function AppDataProvider({ children }) {
         compReqsRes,
         monthlyTargetsRes,
         monthlyCommentsRes,
+        conversationsRes,
+        participantsRes,
+        messagesRes,
+        msgReportsRes,
         pTasksRes,
         readStateRes,
       ] = results;
@@ -236,6 +371,18 @@ export function AppDataProvider({ children }) {
       }
       if (monthlyCommentsRes && !monthlyCommentsRes.error && monthlyCommentsRes.data && monthlyCommentsRes.data.length > 0) {
         setMonthlyTargetComments(monthlyCommentsRes.data);
+      }
+      if (conversationsRes && !conversationsRes.error && conversationsRes.data) {
+        setConversations(conversationsRes.data);
+      }
+      if (participantsRes && !participantsRes.error && participantsRes.data) {
+        setConversationParticipants(participantsRes.data);
+      }
+      if (messagesRes && !messagesRes.error && messagesRes.data) {
+        setMessages(messagesRes.data);
+      }
+      if (msgReportsRes && !msgReportsRes.error && msgReportsRes.data) {
+        setMessageReports(msgReportsRes.data);
       }
       if (pTasksRes && !pTasksRes.error && pTasksRes.data) {
         setPersonalTasks(pTasksRes.data);
@@ -276,6 +423,7 @@ export function AppDataProvider({ children }) {
       console.warn('Background auto-refresh error:', err);
     } finally {
       setIsRefreshing(false);
+      realtimeReadyRef.current = true;
     }
   }, [currentUser?.id]);
 
@@ -340,14 +488,61 @@ export function AppDataProvider({ children }) {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newUpd = parseUpdateRow(payload.new);
-            // Play notification chime for new comments from other users
-            if (
-              currentUserRef.current?.id &&
-              newUpd.user_id &&
-              String(newUpd.user_id) !== String(currentUserRef.current.id)
-            ) {
-              playNotificationChime();
+
+            // Centralized notification sound for authorized task comments
+            if (realtimeReadyRef.current && currentUserRef.current?.id) {
+              const currentUid = String(currentUserRef.current.id);
+              const actorUid = newUpd.user_id ? String(newUpd.user_id) : null;
+              const hasText = Boolean(
+                (newUpd.text && newUpd.text.trim()) ||
+                (newUpd.update_text && newUpd.update_text.trim())
+              );
+              const hasAttachments = Array.isArray(newUpd.attachments) && newUpd.attachments.length > 0;
+
+              if ((hasText || hasAttachments) && actorUid && actorUid !== currentUid) {
+                const currentRole = currentUserRef.current.role || 'team_member';
+                const isAdmin = currentRole === 'admin' || currentRole === 'it_support_admin';
+                const isHOD = currentRole === 'hod';
+                const deptId = currentUserRef.current.department_id;
+
+                const targetTask = (tasksRef.current || []).find(
+                  (t) => String(t.id) === String(newUpd.task_id)
+                );
+
+                let isAuthorized = false;
+                if (!targetTask) {
+                  isAuthorized = isAdmin;
+                } else {
+                  const isPersonal = targetTask.task_origin === 'personal';
+                  if (isPersonal && String(targetTask.created_by) !== currentUid && !isAdmin) {
+                    isAuthorized = false;
+                  } else {
+                    const isAssigned =
+                      String(targetTask.assigned_to) === currentUid ||
+                      (Array.isArray(targetTask.assigned_to_ids) &&
+                        targetTask.assigned_to_ids.map(String).includes(currentUid));
+                    const isAssisted =
+                      String(targetTask.assisted_by) === currentUid ||
+                      (Array.isArray(targetTask.assisted_by_ids) &&
+                        targetTask.assisted_by_ids.map(String).includes(currentUid));
+                    const isCreator = String(targetTask.created_by) === currentUid;
+                    const isDeptHOD = isHOD && targetTask.department_id === deptId;
+
+                    isAuthorized = isAssigned || isAssisted || isCreator || isDeptHOD || isAdmin;
+                  }
+                }
+
+                if (isAuthorized) {
+                  playNotificationSound({
+                    eventId: `comment-${newUpd.id || `${newUpd.task_id}-${newUpd.created_at || Date.now()}`}`,
+                    eventType: SOUND_ENABLED_EVENT_TYPES.TASK_COMMENT,
+                    actorUserId: actorUid,
+                    currentUser: currentUserRef.current,
+                  });
+                }
+              }
             }
+
             setTasks((prev) =>
               prev.map((t) => {
                 if (t.id === newUpd.task_id) {
@@ -426,7 +621,119 @@ export function AppDataProvider({ children }) {
           }
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newMsg = payload.new;
+
+            // Centralized notification sound for incoming private messages
+            if (realtimeReadyRef.current && currentUserRef.current?.id) {
+              const currentUid = String(currentUserRef.current.id);
+              const senderUid = newMsg.sender_id ? String(newMsg.sender_id) : null;
+
+              if (senderUid && senderUid !== currentUid) {
+                const convId = String(newMsg.conversation_id);
+                const isParticipant = (conversationParticipantsRef.current || []).some(
+                  (p) => String(p.conversation_id) === convId && String(p.user_id) === currentUid
+                );
+                const targetConv = (conversationsRef.current || []).find((c) => String(c.id) === convId);
+
+                if (isParticipant || targetConv) {
+                  let eventType = SOUND_ENABLED_EVENT_TYPES.DIRECT_MESSAGE;
+                  if (newMsg.source_type === 'broadcast') {
+                    eventType = SOUND_ENABLED_EVENT_TYPES.BROADCAST_MESSAGE;
+                  } else if (targetConv?.type === 'group') {
+                    eventType = SOUND_ENABLED_EVENT_TYPES.GROUP_MESSAGE;
+                  }
+
+                  playNotificationSound({
+                    eventId: `msg-${newMsg.id}`,
+                    eventType,
+                    actorUserId: senderUid,
+                    currentUser: currentUserRef.current,
+                  });
+                }
+              }
+            }
+
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedMsg = payload.new;
+            setMessages((prev) =>
+              prev.map((m) => (m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            setMessages((prev) => prev.filter((m) => m.id !== deletedId));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newConv = payload.new;
+            setConversations((prev) => {
+              if (prev.some((c) => c.id === newConv.id)) return prev;
+              return [newConv, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedConv = payload.new;
+            setConversations((prev) =>
+              prev.map((c) => (c.id === updatedConv.id ? { ...c, ...updatedConv } : c))
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversation_participants' },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new;
+            setConversationParticipants((prev) => {
+              const idx = prev.findIndex(
+                (p) => p.conversation_id === row.conversation_id && p.user_id === row.user_id
+              );
+              if (idx !== -1) {
+                return prev.map((p, i) => (i === idx ? { ...p, ...row } : p));
+              }
+              return [...prev, row];
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'message_reports' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newRep = payload.new;
+            setMessageReports((prev) => {
+              if (prev.some((r) => r.id === newRep.id)) return prev;
+              return [newRep, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedRep = payload.new;
+            setMessageReports((prev) =>
+              prev.map((r) => (r.id === updatedRep.id ? { ...r, ...updatedRep } : r))
+            );
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setTimeout(() => {
+            realtimeReadyRef.current = true;
+          }, 500);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -485,6 +792,51 @@ export function AppDataProvider({ children }) {
 
     return () => clearInterval(chatPoll);
   }, []);
+
+  // 5. Dedicated fast-poll for Private Messages, Conversations & Participants — every 4 seconds
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !currentUser?.id) return;
+
+    const messagingPoll = setInterval(async () => {
+      try {
+        const [convsRes, partsRes, msgsRes] = await Promise.all([
+          supabase.from('conversations').select('*').order('updated_at', { ascending: false }),
+          supabase.from('conversation_participants').select('*'),
+          supabase.from('messages').select('*').order('created_at', { ascending: true }),
+        ]);
+
+        if (convsRes.data && !convsRes.error) {
+          setConversations((prev) => {
+            const serverIds = new Set(convsRes.data.map((c) => c.id));
+            const localOnly = prev.filter((c) => !serverIds.has(c.id));
+            return [...convsRes.data, ...localOnly];
+          });
+        }
+
+        if (partsRes.data && !partsRes.error) {
+          setConversationParticipants((prev) => {
+            const keySet = new Set(partsRes.data.map((p) => `${p.conversation_id}_${p.user_id}`));
+            const localOnly = prev.filter((p) => !keySet.has(`${p.conversation_id}_${p.user_id}`));
+            return [...partsRes.data, ...localOnly];
+          });
+        }
+
+        if (msgsRes.data && !msgsRes.error) {
+          setMessages((prev) => {
+            const serverIds = new Set(msgsRes.data.map((m) => m.id));
+            const localOnly = prev.filter((m) => !serverIds.has(m.id));
+            const merged = [...msgsRes.data, ...localOnly];
+            // Sort chronologically
+            return merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          });
+        }
+      } catch (err) {
+        // background silent poll
+      }
+    }, 4 * 1000); // every 4 seconds
+
+    return () => clearInterval(messagingPoll);
+  }, [currentUser?.id]);
 
   // Helper for logging activity (Enforces IT Support suppression rule & persists to Supabase)
   const logActivity = async (action, entityType, entityId, metadata = {}) => {
@@ -2310,6 +2662,558 @@ export function AppDataProvider({ children }) {
     return newComment;
   };
 
+  // =========================================================================
+  // PRIVATE MESSAGING, GROUPS, BROADCAST & MODERATION (DOMAIN SEPARATION)
+  // =========================================================================
+
+  const getOrCreateDirectConversation = useCallback(
+    async ({ recipientId }) => {
+      if (!currentUser?.id || !recipientId) return null;
+      const currentUid = String(currentUser.id);
+      const targetUid = String(recipientId);
+      const nowIso = new Date().toISOString();
+
+      // 1. Check if a 1-to-1 direct conversation already exists in memory
+      let directConv = conversations.find((c) => {
+        if (c.type !== 'direct') return false;
+        const parts = (conversationParticipants || []).filter(
+          (p) => String(p.conversation_id) === String(c.id)
+        );
+        const userIds = parts.map((p) => String(p.user_id));
+        return userIds.includes(currentUid) && userIds.includes(targetUid);
+      });
+
+      if (directConv) {
+        return directConv;
+      }
+
+      // 2. Check Supabase to prevent duplicate creation if not in local cache yet
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data: dbParts } = await supabase
+            .from('conversation_participants')
+            .select('conversation_id, user_id')
+            .in('user_id', [currentUid, targetUid]);
+
+          if (dbParts && dbParts.length > 0) {
+            const counts = {};
+            dbParts.forEach((p) => {
+              counts[p.conversation_id] = (counts[p.conversation_id] || 0) + 1;
+            });
+            const existingId = Object.keys(counts).find((k) => counts[k] >= 2);
+            if (existingId) {
+              const { data: existingConv } = await supabase
+                .from('conversations')
+                .select('*')
+                .eq('id', existingId)
+                .maybeSingle();
+
+              if (existingConv && existingConv.type === 'direct') {
+                setConversations((prev) =>
+                  prev.some((c) => c.id === existingConv.id) ? prev : [existingConv, ...prev]
+                );
+                return existingConv;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Supabase direct conversation query error:', err);
+        }
+      }
+
+      const convId = `conv-dm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      directConv = {
+        id: convId,
+        type: 'direct',
+        name: null,
+        created_by: currentUid,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const p1 = {
+        conversation_id: convId,
+        user_id: currentUid,
+        joined_at: nowIso,
+        last_read_at: nowIso,
+      };
+      const p2 = {
+        conversation_id: convId,
+        user_id: targetUid,
+        joined_at: nowIso,
+        last_read_at: null,
+      };
+
+      setConversations((prev) => [directConv, ...prev]);
+      setConversationParticipants((prev) => [...prev, p1, p2]);
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error: convErr } = await supabase.from('conversations').insert([directConv]);
+          if (convErr) console.warn('Supabase direct conversation insert notice:', convErr.message);
+          const { error: partErr } = await supabase.from('conversation_participants').insert([p1, p2]);
+          if (partErr) console.warn('Supabase direct participant insert notice:', partErr.message);
+        } catch (e) {
+          console.warn('Supabase direct conversation create fallback:', e);
+        }
+      }
+
+      return directConv;
+    },
+    [currentUser?.id, conversations, conversationParticipants]
+  );
+
+  const sendDirectMessage = useCallback(
+    async ({ recipientId, body, replyToId = null }) => {
+      if (!currentUser?.id || !recipientId || !body?.trim()) return null;
+      const currentUid = String(currentUser.id);
+      const targetUid = String(recipientId);
+      const nowIso = new Date().toISOString();
+
+      // Find or create direct conversation
+      const directConv = await getOrCreateDirectConversation({ recipientId: targetUid });
+      if (!directConv) return null;
+
+      // Update existing conversation timestamp
+      setConversations((prev) =>
+        prev.map((c) => (c.id === directConv.id ? { ...c, updated_at: nowIso } : c))
+      );
+
+      // Create the message
+      const newMsg = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        conversation_id: directConv.id,
+        sender_id: currentUid,
+        body: body.trim(),
+        reply_to_message_id: replyToId || null,
+        source_type: 'direct',
+        broadcast_id: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        deleted_at: null,
+      };
+
+      setMessages((prev) => [...prev, newMsg]);
+
+      // Update sender's last_read_at
+      setConversationParticipants((prev) =>
+        prev.map((p) =>
+          String(p.conversation_id) === String(directConv.id) && String(p.user_id) === currentUid
+            ? { ...p, last_read_at: nowIso }
+            : p
+        )
+      );
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error: msgErr } = await supabase.from('messages').insert([newMsg]);
+          if (msgErr) console.warn('Supabase message insert notice:', msgErr.message);
+          await supabase
+            .from('conversations')
+            .update({ updated_at: nowIso })
+            .eq('id', directConv.id);
+          await supabase
+            .from('conversation_participants')
+            .update({ last_read_at: nowIso })
+            .match({ conversation_id: directConv.id, user_id: currentUid });
+        } catch (e) {
+          console.warn('Supabase message insert fallback:', e);
+        }
+      }
+
+      return { conversation: directConv, message: newMsg };
+    },
+    [currentUser?.id, getOrCreateDirectConversation]
+  );
+
+  const createGroupConversation = useCallback(
+    async ({ name = null, participantIds = [], initialMessage = '' }) => {
+      if (!currentUser?.id) return null;
+      const currentUid = String(currentUser.id);
+      const nowIso = new Date().toISOString();
+      const convId = `conv-grp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+      const allMemberIds = Array.from(new Set([currentUid, ...participantIds.map(String)]));
+
+      const newGroup = {
+        id: convId,
+        type: 'group',
+        name: name?.trim() || null,
+        created_by: currentUid,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const newParticipants = allMemberIds.map((uid) => ({
+        conversation_id: convId,
+        user_id: uid,
+        joined_at: nowIso,
+        last_read_at: uid === currentUid ? nowIso : null,
+      }));
+
+      setConversations((prev) => [newGroup, ...prev]);
+      setConversationParticipants((prev) => [...prev, ...newParticipants]);
+
+      let createdMsg = null;
+      if (initialMessage && initialMessage.trim()) {
+        createdMsg = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          conversation_id: convId,
+          sender_id: currentUid,
+          body: initialMessage.trim(),
+          reply_to_message_id: null,
+          source_type: 'group',
+          broadcast_id: null,
+          created_at: nowIso,
+          updated_at: nowIso,
+          deleted_at: null,
+        };
+        setMessages((prev) => [...prev, createdMsg]);
+      }
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error: gErr } = await supabase.from('conversations').insert([newGroup]);
+          if (gErr) console.warn('Supabase group insert notice:', gErr.message);
+          const { error: pErr } = await supabase.from('conversation_participants').insert(newParticipants);
+          if (pErr) console.warn('Supabase group participants insert notice:', pErr.message);
+          if (createdMsg) {
+            const { error: mErr } = await supabase.from('messages').insert([createdMsg]);
+            if (mErr) console.warn('Supabase group initial msg insert notice:', mErr.message);
+          }
+        } catch (e) {
+          console.warn('Supabase group create fallback:', e);
+        }
+      }
+
+      return { conversation: newGroup, message: createdMsg, id: newGroup.id };
+    },
+    [currentUser?.id]
+  );
+
+  const sendBroadcastMessage = useCallback(
+    async ({ recipientIds = [], body = '' }) => {
+      if (!currentUser?.id || !Array.isArray(recipientIds) || recipientIds.length === 0 || !body?.trim()) {
+        return null;
+      }
+
+      const currentUid = String(currentUser.id);
+      const nowIso = new Date().toISOString();
+      const broadcastId = `bcast-${Date.now()}`;
+      const generatedMessages = [];
+      const newConversations = [];
+      const newParticipants = [];
+
+      for (const rawRecipientId of recipientIds) {
+        const recipientId = String(rawRecipientId);
+        if (!recipientId || recipientId === currentUid) continue;
+
+        // Find or create direct conversation with this specific recipient
+        let directConv = conversations.find((c) => {
+          if (c.type !== 'direct') return false;
+          const parts = (conversationParticipants || []).filter(
+            (p) => String(p.conversation_id) === String(c.id)
+          );
+          const userIds = parts.map((p) => String(p.user_id));
+          return userIds.includes(currentUid) && userIds.includes(recipientId);
+        });
+
+        if (!directConv) {
+          const convId = `conv-dm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+          directConv = {
+            id: convId,
+            type: 'direct',
+            name: null,
+            created_by: currentUid,
+            created_at: nowIso,
+            updated_at: nowIso,
+          };
+
+          const p1 = {
+            conversation_id: convId,
+            user_id: currentUid,
+            joined_at: nowIso,
+            last_read_at: nowIso,
+          };
+          const p2 = {
+            conversation_id: convId,
+            user_id: recipientId,
+            joined_at: nowIso,
+            last_read_at: null,
+          };
+
+          newConversations.push(directConv);
+          newParticipants.push(p1, p2);
+        }
+
+        const msg = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          conversation_id: directConv.id,
+          sender_id: currentUid,
+          body: body.trim(),
+          reply_to_message_id: null,
+          source_type: 'broadcast',
+          broadcast_id: broadcastId,
+          created_at: nowIso,
+          updated_at: nowIso,
+          deleted_at: null,
+        };
+
+        generatedMessages.push(msg);
+      }
+
+      if (newConversations.length > 0) {
+        setConversations((prev) => [...newConversations, ...prev]);
+        setConversationParticipants((prev) => [...prev, ...newParticipants]);
+      }
+
+      if (generatedMessages.length > 0) {
+        setMessages((prev) => [...prev, ...generatedMessages]);
+      }
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          if (newConversations.length > 0) {
+            await supabase.from('conversations').insert(newConversations);
+            await supabase.from('conversation_participants').insert(newParticipants);
+          }
+          if (generatedMessages.length > 0) {
+            const { error: bErr } = await supabase.from('messages').insert(generatedMessages);
+            if (bErr) console.warn('Supabase broadcast insert notice:', bErr.message);
+          }
+        } catch (e) {
+          console.warn('Supabase broadcast insert fallback:', e);
+        }
+      }
+
+      return { broadcastId, count: generatedMessages.length };
+    },
+    [currentUser?.id, conversations, conversationParticipants]
+  );
+
+  const sendMessage = useCallback(
+    async ({ conversationId, body, replyToId = null }) => {
+      if (!currentUser?.id || !conversationId || !body?.trim()) return null;
+      const currentUid = String(currentUser.id);
+      const convId = String(conversationId);
+      const nowIso = new Date().toISOString();
+
+      const targetConv = conversations.find((c) => String(c.id) === convId);
+      const sourceType = targetConv?.type || 'direct';
+
+      const newMsg = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        conversation_id: convId,
+        sender_id: currentUid,
+        body: body.trim(),
+        reply_to_message_id: replyToId || null,
+        source_type: sourceType,
+        broadcast_id: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        deleted_at: null,
+      };
+
+      setMessages((prev) => [...prev, newMsg]);
+
+      // Update conversation updated_at
+      setConversations((prev) =>
+        prev.map((c) => (String(c.id) === convId ? { ...c, updated_at: nowIso } : c))
+      );
+
+      // Update sender's last_read_at
+      setConversationParticipants((prev) => {
+        const exists = prev.some(
+          (p) => String(p.conversation_id) === convId && String(p.user_id) === currentUid
+        );
+        if (exists) {
+          return prev.map((p) =>
+            String(p.conversation_id) === convId && String(p.user_id) === currentUid
+              ? { ...p, last_read_at: nowIso }
+              : p
+          );
+        }
+        return [
+          ...prev,
+          {
+            conversation_id: convId,
+            user_id: currentUid,
+            joined_at: nowIso,
+            last_read_at: nowIso,
+          },
+        ];
+      });
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error: mErr } = await supabase.from('messages').insert([newMsg]);
+          if (mErr) console.warn('Supabase send message notice:', mErr.message);
+          await supabase
+            .from('conversations')
+            .update({ updated_at: nowIso })
+            .eq('id', convId);
+          await supabase
+            .from('conversation_participants')
+            .update({ last_read_at: nowIso })
+            .match({ conversation_id: convId, user_id: currentUid });
+        } catch (e) {
+          console.warn('Supabase send message fallback:', e);
+        }
+      }
+
+      return newMsg;
+    },
+    [currentUser?.id, conversations]
+  );
+
+  const markConversationAsRead = useCallback(
+    (conversationId) => {
+      if (!currentUser?.id || !conversationId) return;
+      const currentUid = String(currentUser.id);
+      const convId = String(conversationId);
+      const nowIso = new Date().toISOString();
+
+      setConversationParticipants((prev) => {
+        const exists = prev.some(
+          (p) => String(p.conversation_id) === convId && String(p.user_id) === currentUid
+        );
+        if (exists) {
+          return prev.map((p) =>
+            String(p.conversation_id) === convId && String(p.user_id) === currentUid
+              ? { ...p, last_read_at: nowIso }
+              : p
+          );
+        }
+        return [
+          ...prev,
+          {
+            conversation_id: convId,
+            user_id: currentUid,
+            joined_at: nowIso,
+            last_read_at: nowIso,
+          },
+        ];
+      });
+
+      if (isSupabaseConfigured && supabase) {
+        supabase
+          .from('conversation_participants')
+          .update({ last_read_at: nowIso })
+          .match({ conversation_id: convId, user_id: currentUid })
+          .then(({ error }) => {
+            if (error) {
+              // Try upsert if row did not exist yet
+              supabase
+                .from('conversation_participants')
+                .upsert(
+                  {
+                    conversation_id: convId,
+                    user_id: currentUid,
+                    last_read_at: nowIso,
+                  },
+                  { onConflict: 'conversation_id,user_id' }
+                )
+                .then(() => {})
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
+    },
+    [currentUser?.id]
+  );
+
+  const reportMessage = useCallback(
+    async ({ messageId, conversationId, reportedUserId, reason, reporterNote = '' }) => {
+      if (!currentUser?.id || !messageId) return null;
+      const currentUid = String(currentUser.id);
+      const nowIso = new Date().toISOString();
+
+      const targetMsg = (messages || []).find((m) => String(m.id) === String(messageId));
+      const messageSnapshot = {
+        body: targetMsg?.body || '',
+        sender_id: targetMsg?.sender_id || reportedUserId,
+        created_at: targetMsg?.created_at || nowIso,
+      };
+
+      const newReport = {
+        id: `mr-${Date.now()}`,
+        message_id: messageId,
+        conversation_id: conversationId,
+        reported_by_user_id: currentUid,
+        reported_user_id: reportedUserId,
+        message_snapshot: messageSnapshot,
+        message_sent_at: targetMsg?.created_at || nowIso,
+        reason: reason || 'Inappropriate language',
+        reporter_note: reporterNote?.trim() || '',
+        status: 'open',
+        reviewed_by: null,
+        reviewed_at: null,
+        admin_note: null,
+        created_at: nowIso,
+      };
+
+      setMessageReports((prev) => [newReport, ...prev]);
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error: repErr } = await supabase.from('message_reports').insert([newReport]);
+          if (repErr) console.warn('Supabase report insert notice:', repErr.message);
+        } catch (e) {
+          console.warn('Supabase message report insert fallback:', e);
+        }
+      }
+
+      return newReport;
+    },
+    [currentUser?.id, messages]
+  );
+
+  const updateReportStatus = useCallback(
+    async ({ reportId, status, adminNote = null }) => {
+      if (!currentUser?.id || !reportId) return null;
+      const currentUid = String(currentUser.id);
+      const nowIso = new Date().toISOString();
+
+      let updatedObj = null;
+      setMessageReports((prev) =>
+        prev.map((r) => {
+          if (String(r.id) === String(reportId)) {
+            updatedObj = {
+              ...r,
+              status,
+              admin_note: adminNote !== null ? adminNote : r.admin_note,
+              reviewed_by: currentUid,
+              reviewed_at: nowIso,
+            };
+            return updatedObj;
+          }
+          return r;
+        })
+      );
+
+      if (isSupabaseConfigured && supabase && updatedObj) {
+        try {
+          const { error: uErr } = await supabase
+            .from('message_reports')
+            .update({
+              status,
+              admin_note: updatedObj.admin_note,
+              reviewed_by: currentUid,
+              reviewed_at: nowIso,
+            })
+            .eq('id', reportId);
+          if (uErr) console.warn('Supabase report update notice:', uErr.message);
+        } catch (e) {
+          console.warn('Supabase report update fallback:', e);
+        }
+      }
+
+      return updatedObj;
+    },
+    [currentUser?.id]
+  );
+
   const value = {
     departments,
     tasks: tasks.filter((t) => !t.is_deleted), // Non-deleted tasks
@@ -2364,6 +3268,19 @@ export function AppDataProvider({ children }) {
     updateMonthlyTargetStatus,
     deleteMonthlyTarget,
     addMonthlyTargetComment,
+    // Messaging state & actions
+    conversations,
+    conversationParticipants,
+    messages,
+    messageReports,
+    getOrCreateDirectConversation,
+    sendDirectMessage,
+    createGroupConversation,
+    sendBroadcastMessage,
+    sendMessage,
+    markConversationAsRead,
+    reportMessage,
+    updateReportStatus,
     refreshAllData,
     isRefreshing,
     lastRefreshedAt,

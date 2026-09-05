@@ -13,6 +13,8 @@ import {
   canUserViewTask,
 } from '../../utils/rbac/permissionManager';
 import { canViewMonthlyTarget } from '../../utils/monthlyTargets/monthlyTargetPermissions';
+import { canManageMessageReports, canStartDirectMessage } from '../../utils/messages/messagePermissions';
+import { getTotalUnreadMessagesCount } from '../../utils/messages/messageSelectors';
 import { UnreadBadge } from '../common/UnreadBadge';
 import { getViewUnreadCounts } from '../../utils/comments/unreadCommentSelectors';
 import { Avatar } from '../common/Avatar';
@@ -37,6 +39,8 @@ import {
   ShieldCheck,
   Shield,
   Target,
+  MessageSquare,
+  ShieldAlert,
 } from 'lucide-react';
 
 export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse, onNavItemClick, onOpenCommandPalette }) {
@@ -49,6 +53,10 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
     departments = [],
     monthlyTargets = [],
     monthlyTargetComments = [],
+    conversations = [],
+    conversationParticipants = [],
+    messages = [],
+    messageReports = [],
   } = useAppData();
   const navigate = useNavigate();
   const location = useLocation();
@@ -129,6 +137,19 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
   }, [completionRequests, tasks, currentUser, users]);
 
   const totalInboxCount = pendingDeleteCount + pendingCompletionCount;
+
+  // Scoped Messaging Unread Count
+  const messagesUnreadCount = useMemo(() => {
+    if (!userId) return 0;
+    return getTotalUnreadMessagesCount(userId, conversations, conversationParticipants, messages);
+  }, [userId, conversations, conversationParticipants, messages]);
+
+  // Scoped Message Reports Count (Admins / Moderators)
+  const canSeeMessageReports = canManageMessageReports(currentUser);
+  const openMessageReportsCount = useMemo(() => {
+    if (!canSeeMessageReports) return 0;
+    return (messageReports || []).filter((r) => r.status === 'open').length;
+  }, [messageReports, canSeeMessageReports]);
 
   // Click outside to close user menu
   useEffect(() => {
@@ -287,6 +308,14 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
               isActive={isMyTasksActive}
             />
             <NavItem to="/personal-tasks" label="Personal Tasks" icon={User} />
+            <NavItem
+              to="/messages"
+              label="Messages"
+              icon={MessageSquare}
+              badge={messagesUnreadCount > 0 ? messagesUnreadCount : null}
+              badgeColor="bg-[#2563EB] text-white font-bold"
+              isActive={location.pathname === '/messages' || location.pathname.startsWith('/messages/')}
+            />
           </div>
         </div>
 
@@ -525,30 +554,7 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
           </div>
         </div>
 
-        {/* GROUP 3: PERFORMANCE */}
-        <div>
-          {!isCollapsed && (
-            <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8B8B95]">
-              Performance
-            </div>
-          )}
-          <div className="space-y-0.5">
-            <NavItem
-              to="/monthly-targets"
-              label="Monthly Targets & KPIs"
-              icon={Target}
-              badge={monthlyTargetsUnreadCount > 0 ? monthlyTargetsUnreadCount : null}
-              badgeColor="bg-[#2563EB] text-white font-bold"
-              isActive={
-                location.pathname === '/monthly-targets' ||
-                location.pathname.startsWith('/monthly-targets/') ||
-                location.pathname === '/performance/monthly-targets'
-              }
-            />
-          </div>
-        </div>
-
-        {/* GROUP 4: MANAGEMENT */}
+        {/* GROUP 3: MANAGEMENT */}
         <div>
           {!isCollapsed && (
             <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8B8B95]">
@@ -570,10 +576,47 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
               }
             />
 
+            {canSeeMessageReports && (
+              <NavItem
+                to="/management/message-reports"
+                label="Message Reports"
+                icon={ShieldAlert}
+                badge={openMessageReportsCount > 0 ? openMessageReportsCount : null}
+                badgeColor="bg-[#2563EB] text-white font-bold"
+                isActive={
+                  location.pathname === '/management/message-reports' ||
+                  location.pathname === '/message-reports'
+                }
+              />
+            )}
+
             {canSeeReports && (
               <NavItem to="/reports" label="Reports" icon={BarChart3} />
             )}
             <NavItem to="/activity" label="Activity" icon={Activity} />
+          </div>
+        </div>
+
+        {/* GROUP 4: PERFORMANCE */}
+        <div>
+          {!isCollapsed && (
+            <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8B8B95]">
+              Performance
+            </div>
+          )}
+          <div className="space-y-0.5">
+            <NavItem
+              to="/monthly-targets"
+              label="Monthly Targets & KPIs"
+              icon={Target}
+              badge={monthlyTargetsUnreadCount > 0 ? monthlyTargetsUnreadCount : null}
+              badgeColor="bg-[#2563EB] text-white font-bold"
+              isActive={
+                location.pathname === '/monthly-targets' ||
+                location.pathname.startsWith('/monthly-targets/') ||
+                location.pathname === '/performance/monthly-targets'
+              }
+            />
           </div>
         </div>
       </div>

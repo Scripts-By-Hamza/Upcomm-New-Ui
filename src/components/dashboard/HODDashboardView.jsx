@@ -127,6 +127,78 @@ export function HODDashboardView() {
     }).length;
   }, [filteredDepartmentTasks, currentUser]);
 
+  // In-progress breakdowns for this HOD
+  const inProgressCreatedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter(
+      (t) =>
+        t.status === 'in_progress' &&
+        (t.created_by === currentUser.id || t.assigned_by === currentUser.id)
+    ).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
+  const inProgressAssignedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter((t) => {
+      if (t.status !== 'in_progress') return false;
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
+  // Overdue breakdowns for this HOD
+  const overdueCreatedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter(
+      (t) =>
+        isTaskOverdue(t.due_date, t.status) &&
+        (t.created_by === currentUser.id || t.assigned_by === currentUser.id)
+    ).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
+  const overdueAssignedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter((t) => {
+      if (!isTaskOverdue(t.due_date, t.status)) return false;
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
+  // Completed breakdowns for this HOD
+  const completedCreatedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter(
+      (t) =>
+        t.status === 'completed' &&
+        (t.created_by === currentUser.id || t.assigned_by === currentUser.id)
+    ).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
+  const completedAssignedCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    return filteredDepartmentTasks.filter((t) => {
+      if (t.status !== 'completed') return false;
+      const assigneeIds = getTaskAssigneeIds(t);
+      const assistantIds = getTaskAssistantIds(t);
+      return (
+        t.assigned_to === currentUser.id ||
+        assigneeIds.includes(currentUser.id) ||
+        assistantIds.includes(currentUser.id)
+      );
+    }).length;
+  }, [filteredDepartmentTasks, currentUser]);
+
   // Department tasks created in the past 7 days for truthful trend
   const createdThisWeekCount = useMemo(() => {
     const oneWeekAgo = new Date();
@@ -205,6 +277,12 @@ export function HODDashboardView() {
         createdThisWeekCount={createdThisWeekCount}
         createdByCount={createdByCurrentUserCount}
         assignedToCount={assignedToCurrentUserCount}
+        inProgressCreatedCount={inProgressCreatedCount}
+        inProgressAssignedCount={inProgressAssignedCount}
+        overdueCreatedCount={overdueCreatedCount}
+        overdueAssignedCount={overdueAssignedCount}
+        completedCreatedCount={completedCreatedCount}
+        completedAssignedCount={completedAssignedCount}
       />
 
       {/* 3. Main Two-Column Balanced Grid */}

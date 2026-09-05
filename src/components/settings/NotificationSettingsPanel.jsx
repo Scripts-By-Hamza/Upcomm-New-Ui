@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, CheckCircle2, Loader2 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { isNotificationSoundEnabled, setNotificationSoundEnabled } from '../../utils/audio/notificationSound';
 
 export function NotificationSettingsPanel() {
+  const { currentUser } = useAuth();
+
   const [notifications, setNotifications] = useState({
     taskAssigned: true,
     dueSoonReminders: true,
@@ -14,6 +18,29 @@ export function NotificationSettingsPanel() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Load saved preferences for the current authenticated user
+  useEffect(() => {
+    if (currentUser?.id) {
+      try {
+        const userSaved = localStorage.getItem(`upcomm_notification_settings_${currentUser.id}`);
+        const soundPref = isNotificationSoundEnabled(currentUser.id);
+        if (userSaved) {
+          const parsed = JSON.parse(userSaved);
+          setNotifications((prev) => ({
+            ...prev,
+            ...parsed,
+            soundAlerts: soundPref,
+          }));
+        } else {
+          setNotifications((prev) => ({
+            ...prev,
+            soundAlerts: soundPref,
+          }));
+        }
+      } catch (e) {}
+    }
+  }, [currentUser?.id]);
+
   const toggleOption = (key) => {
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -21,6 +48,19 @@ export function NotificationSettingsPanel() {
   const handleSave = (e) => {
     e.preventDefault();
     setIsSaving(true);
+
+    try {
+      if (currentUser?.id) {
+        localStorage.setItem(
+          `upcomm_notification_settings_${currentUser.id}`,
+          JSON.stringify(notifications)
+        );
+        setNotificationSoundEnabled(notifications.soundAlerts, currentUser.id);
+      }
+      localStorage.setItem('upcomm_notification_settings', JSON.stringify(notifications));
+      localStorage.setItem('upcomm_sound_alerts', String(notifications.soundAlerts));
+    } catch (err) {}
+
     setTimeout(() => {
       setIsSaving(false);
       setSaveSuccess(true);
@@ -136,11 +176,11 @@ export function NotificationSettingsPanel() {
             </button>
           </div>
 
-          {/* Item 5 */}
+          {/* Item 5 - Centralized Notification Sound */}
           <div className="pt-4 flex items-center justify-between gap-4">
             <div>
-              <h4 className="text-[13.5px] font-medium text-[#18181B]">Notification Sound Chimes</h4>
-              <p className="text-[12px] text-[#71717A] mt-0.5">Play a subtle audio tone when new notifications arrive in the topbar.</p>
+              <h4 className="text-[13.5px] font-medium text-[#18181B]">Notification Sound</h4>
+              <p className="text-[12px] text-[#71717A] mt-0.5">Play a sound when you receive a new task comment or message.</p>
             </div>
             <button
               type="button"

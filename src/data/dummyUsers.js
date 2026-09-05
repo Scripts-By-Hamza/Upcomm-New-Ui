@@ -49,4 +49,72 @@ export const INITIAL_USERS = [
     suppress_activity_logging: false,
     created_at: '2026-08-28T22:28:00.000Z',
   },
+
+  // 4. Ahmed Shah
+  {
+    id: 'usr-ahmed-1',
+    email: 'ahmed.shah@upcomm.com',
+    full_name: 'Ahmed Shah',
+    designation: 'Frontend Developer',
+    role: 'team_member',
+    department_id: 'dept-1',
+    avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=250',
+    is_active: true,
+    must_change_password: false,
+    is_system_account: false,
+    exclude_from_directory: false,
+    suppress_activity_logging: false,
+    created_at: '2026-08-20T10:00:00.000Z',
+  },
+
+  // 5. Sarah Khan
+  {
+    id: 'usr-sarah-1',
+    email: 'sarah.khan@upcomm.com',
+    full_name: 'Sarah Khan',
+    designation: 'UI/UX Designer & QA Specialist',
+    role: 'team_member',
+    department_id: 'dept-1',
+    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=250',
+    is_active: true,
+    must_change_password: false,
+    is_system_account: false,
+    exclude_from_directory: false,
+    suppress_activity_logging: false,
+    created_at: '2026-08-21T10:00:00.000Z',
+  },
+
+  // 6. Bilal Ahmed
+  {
+    id: 'usr-bilal-1',
+    email: 'bilal.ahmed@upcomm.com',
+    full_name: 'Bilal Ahmed',
+    designation: 'Operations Lead',
+    role: 'team_member',
+    department_id: 'dept-2',
+    avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=250',
+    is_active: true,
+    must_change_password: false,
+    is_system_account: false,
+    exclude_from_directory: false,
+    suppress_activity_logging: false,
+    created_at: '2026-08-22T10:00:00.000Z',
+  },
+
+  // 7. Ali Hassan
+  {
+    id: 'usr-ali-1',
+    email: 'ali.hassan@upcomm.com',
+    full_name: 'Ali Hassan',
+    designation: 'Marketing Lead',
+    role: 'team_member',
+    department_id: 'dept-3',
+    avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=250',
+    is_active: true,
+    must_change_password: false,
+    is_system_account: false,
+    exclude_from_directory: false,
+    suppress_activity_logging: false,
+    created_at: '2026-08-23T10:00:00.000Z',
+  },
 ];

@@ -103,6 +103,24 @@ export function CreateTaskForm({
     );
   }, [users, isTeamMember, currentUser]);
 
+  // Helper to format dates as YYYY-MM-DD
+  const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getFutureDateString = (daysAhead = 7) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Form Fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -116,9 +134,9 @@ export function CreateTaskForm({
     return '';
   });
 
-  // Start date and Due date start empty so user explicitly sets them
-  const [startDate, setStartDate] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  // Start date (auto today) and Due date (auto today + 7 days), both fully editable
+  const [startDate, setStartDate] = useState(() => getTodayDateString());
+  const [dueDate, setDueDate] = useState(() => getFutureDateString(7));
   const [priority, setPriority] = useState('medium');
   const [status, setStatus] = useState(() =>
     initialStatus === 'in_progress' ? 'in_progress' : 'pending'
@@ -132,6 +150,18 @@ export function CreateTaskForm({
 
   // Multi-Selected Assistants
   const [selectedAssistants, setSelectedAssistants] = useState([]);
+
+  // Auto-sync department when assignee is selected
+  useEffect(() => {
+    if (selectedUsers && selectedUsers.length > 0) {
+      const primaryUser = selectedUsers[0];
+      if (primaryUser?.department_id) {
+        setDepartmentId(primaryUser.department_id);
+      }
+    } else if (currentUser?.department_id) {
+      setDepartmentId(currentUser.department_id);
+    }
+  }, [selectedUsers, currentUser]);
 
   // Staged Attachments (Files to upload on create)
   const [stagedFiles, setStagedFiles] = useState([]);
@@ -579,51 +609,7 @@ export function CreateTaskForm({
 
       {/* 3. 2-Column Property Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {/* Department Field */}
-        <div className="space-y-1.5" ref={deptRef}>
-          <label className="block text-[12px] font-semibold text-[#18181B]">
-            Department
-          </label>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsDeptDropdownOpen((prev) => !prev)}
-              className="w-full h-10 px-3 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] flex items-center justify-between text-[#18181B] transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2 truncate">
-                <Building2 className="w-3.5 h-3.5 text-[#8B8B95] flex-shrink-0" />
-                <span className="truncate">{selectedDeptObj?.name || 'Select Department'}</span>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95] flex-shrink-0 ml-1" />
-            </button>
-
-            {isDeptDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in max-h-56 overflow-y-auto space-y-0.5 text-left">
-                {allowedDepartments.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => {
-                      setDepartmentId(d.id);
-                      setIsDeptDropdownOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
-                      departmentId === d.id ? 'bg-[#F4F4F5] font-semibold text-[#18181B]' : 'text-[#52525B]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Building2 className="w-3.5 h-3.5 text-[#8B8B95]" />
-                      <span className="truncate">{d.name}</span>
-                    </div>
-                    {departmentId === d.id && <Check className="w-3.5 h-3.5 text-[#059669]" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Assignee Field (Multi-user Combobox) */}
+        {/* Row 1 Left: Assignee Field (Multi-user Combobox) */}
         <div className="space-y-1.5" ref={userSearchRef}>
           <label className="block text-[12px] font-semibold text-[#18181B]">
             Assignee <span className="text-[#DC2626]">*</span>
@@ -708,7 +694,92 @@ export function CreateTaskForm({
           </div>
         </div>
 
-        {/* Priority Field */}
+        {/* Row 1 Right: Assistant Users Field (Multi-user Combobox) */}
+        <div className="space-y-1.5" ref={assistantSearchRef}>
+          <label className="block text-[12px] font-semibold text-[#18181B]">
+            Assistant Users
+          </label>
+          <div className="relative">
+            <div
+              onClick={() => setIsAssistantDropdownOpen(true)}
+              className="min-h-10 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] flex items-center flex-wrap gap-1.5 transition-colors cursor-pointer"
+            >
+              {selectedAssistants.length === 0 ? (
+                <span className="text-[#8B8B95] text-[12.5px] pl-1">Search team members...</span>
+              ) : (
+                selectedAssistants.map((ast) => (
+                  <span
+                    key={ast.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-[#F4F4F5] border border-[#E5E7EB] text-[12px] font-medium text-[#18181B]"
+                  >
+                    <Avatar src={ast.avatar_url} name={ast.full_name} size="xs" />
+                    <span className="max-w-[120px] truncate">{ast.full_name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveAssistant(ast.id);
+                      }}
+                      className="text-[#8B8B95] hover:text-[#DC2626] cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+
+            {isAssistantDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1.5 z-50 animate-fade-in space-y-1 text-left">
+                <div className="flex items-center gap-2 px-2 py-1 bg-[#F5F6F8] rounded-[6px] border border-[#E5E7EB]">
+                  <Search className="w-3.5 h-3.5 text-[#8B8B95]" />
+                  <input
+                    type="text"
+                    value={assistantSearch}
+                    onChange={(e) => setAssistantSearch(e.target.value)}
+                    placeholder="Search team members..."
+                    className="w-full bg-transparent text-[12px] text-[#18181B] placeholder-[#8B8B95] outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-0.5 pt-1">
+                  {filteredAssistants.length === 0 ? (
+                    <p className="text-[11.5px] text-[#8B8B95] text-center py-2">No matching users</p>
+                  ) : (
+                    filteredAssistants.map((u) => {
+                      const isSelected = selectedAssistants.some((sel) => sel.id === u.id);
+                      const userDept = departments.find((d) => d.id === u.department_id);
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => handleToggleAssistant(u)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
+                            isSelected ? 'bg-[#ECFDF5] text-[#059669] font-medium' : 'text-[#18181B]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar src={u.avatar_url} name={u.full_name} size="xs" />
+                            <div className="text-left min-w-0">
+                              <p className="font-medium truncate">{u.full_name}</p>
+                              <p className="text-[10.5px] text-[#71717A] truncate">
+                                {userDept?.name || u.designation || u.role}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#059669]" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2 Left: Priority Field */}
         <div className="space-y-1.5" ref={priorityRef}>
           <label className="block text-[12px] font-semibold text-[#18181B]">
             Priority
@@ -755,7 +826,7 @@ export function CreateTaskForm({
           </div>
         </div>
 
-        {/* Status Field */}
+        {/* Row 2 Right: Status Field */}
         <div className="space-y-1.5" ref={statusRef}>
           <label className="block text-[12px] font-semibold text-[#18181B]">
             Status
@@ -819,7 +890,7 @@ export function CreateTaskForm({
           </div>
         </div>
 
-        {/* Start Date Field (Visible outside and required) */}
+        {/* Row 3 Left: Start Date Field (Visible outside and required) */}
         <div className="space-y-1.5">
           <label htmlFor="task-start-date-input" className="block text-[12px] font-semibold text-[#18181B]">
             Start Date <span className="text-[#DC2626]">*</span>
@@ -835,7 +906,7 @@ export function CreateTaskForm({
           </div>
         </div>
 
-        {/* Due Date Field (Visible outside and required) */}
+        {/* Row 3 Right: Due Date Field (Visible outside and required) */}
         <div className="space-y-1.5">
           <label htmlFor="task-due-date-input" className="block text-[12px] font-semibold text-[#18181B]">
             Due Date <span className="text-[#DC2626]">*</span>
@@ -849,91 +920,6 @@ export function CreateTaskForm({
               className="w-full h-10 px-3 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669] text-[#18181B] text-[12.5px] transition-colors outline-none cursor-pointer"
             />
           </div>
-        </div>
-      </div>
-
-      {/* 4. Assistant Users Section */}
-      <div className="space-y-1.5 pt-1" ref={assistantSearchRef}>
-        <label className="block text-[12px] font-semibold text-[#18181B]">
-          Assistant Users
-        </label>
-        <div className="relative">
-          <div
-            onClick={() => setIsAssistantDropdownOpen(true)}
-            className="min-h-10 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] flex items-center flex-wrap gap-1.5 transition-colors cursor-pointer"
-          >
-            {selectedAssistants.length === 0 ? (
-              <span className="text-[#8B8B95] text-[12.5px] pl-1">Search team members...</span>
-            ) : (
-              selectedAssistants.map((ast) => (
-                <span
-                  key={ast.id}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-[#F4F4F5] border border-[#E5E7EB] text-[12px] font-medium text-[#18181B]"
-                >
-                  <Avatar src={ast.avatar_url} name={ast.full_name} size="xs" />
-                  <span className="max-w-[120px] truncate">{ast.full_name}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveAssistant(ast.id);
-                    }}
-                    className="text-[#8B8B95] hover:text-[#DC2626] cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))
-            )}
-          </div>
-
-          {isAssistantDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1.5 z-50 animate-fade-in space-y-1 text-left">
-              <div className="flex items-center gap-2 px-2 py-1 bg-[#F5F6F8] rounded-[6px] border border-[#E5E7EB]">
-                <Search className="w-3.5 h-3.5 text-[#8B8B95]" />
-                <input
-                  type="text"
-                  value={assistantSearch}
-                  onChange={(e) => setAssistantSearch(e.target.value)}
-                  placeholder="Search assistants..."
-                  className="w-full bg-transparent text-[12px] text-[#18181B] placeholder-[#8B8B95] outline-none"
-                  autoFocus
-                />
-              </div>
-
-              <div className="max-h-48 overflow-y-auto space-y-0.5 pt-1">
-                {filteredAssistants.length === 0 ? (
-                  <p className="text-[11.5px] text-[#8B8B95] text-center py-2">No matching users</p>
-                ) : (
-                  filteredAssistants.map((u) => {
-                    const isSelected = selectedAssistants.some((sel) => sel.id === u.id);
-                    const userDept = departments.find((d) => d.id === u.department_id);
-                    return (
-                      <button
-                        key={u.id}
-                        type="button"
-                        onClick={() => handleToggleAssistant(u)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
-                          isSelected ? 'bg-[#ECFDF5] text-[#059669] font-medium' : 'text-[#18181B]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Avatar src={u.avatar_url} name={u.full_name} size="xs" />
-                          <div className="text-left min-w-0">
-                            <p className="font-medium truncate">{u.full_name}</p>
-                            <p className="text-[10.5px] text-[#71717A] truncate">
-                              {userDept?.name || u.designation || u.role}
-                            </p>
-                          </div>
-                        </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#059669]" />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

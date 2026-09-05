@@ -116,6 +116,24 @@ export function EditTaskForm({
     );
   }, [users, isTeamMember, currentUser]);
 
+  // Helper to format dates as YYYY-MM-DD
+  const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getFutureDateString = (daysAhead = 7) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // 2. Initial Form State from Task
   const initialValues = useMemo(() => {
     if (!task) return null;
@@ -136,8 +154,8 @@ export function EditTaskForm({
       departmentId: task.department_id || '',
       priority: task.priority || 'medium',
       status: task.status || 'pending',
-      startDate: task.start_date || '',
-      dueDate: task.due_date || '',
+      startDate: task.start_date || getTodayDateString(),
+      dueDate: task.due_date || getFutureDateString(7),
       selectedUsers: resolvedAssignees,
       selectedAssistants: resolvedAssistants,
       attachments: Array.isArray(task.attachments) ? task.attachments : [],
@@ -148,8 +166,8 @@ export function EditTaskForm({
   const [title, setTitle] = useState(() => initialValues?.title || '');
   const [description, setDescription] = useState(() => initialValues?.description || '');
   const [departmentId, setDepartmentId] = useState(() => initialValues?.departmentId || '');
-  const [startDate, setStartDate] = useState(() => initialValues?.startDate || '');
-  const [dueDate, setDueDate] = useState(() => initialValues?.dueDate || '');
+  const [startDate, setStartDate] = useState(() => initialValues?.startDate || getTodayDateString());
+  const [dueDate, setDueDate] = useState(() => initialValues?.dueDate || getFutureDateString(7));
   const [priority, setPriority] = useState(() => initialValues?.priority || 'medium');
   const [status, setStatus] = useState(() => initialValues?.status || 'pending');
   const [selectedUsers, setSelectedUsers] = useState(() => initialValues?.selectedUsers || []);
@@ -158,6 +176,18 @@ export function EditTaskForm({
   );
   const [attachments, setAttachments] = useState(() => initialValues?.attachments || []);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+  // Auto-sync department when assignee is selected
+  useEffect(() => {
+    if (selectedUsers && selectedUsers.length > 0) {
+      const primaryUser = selectedUsers[0];
+      if (primaryUser?.department_id) {
+        setDepartmentId(primaryUser.department_id);
+      }
+    } else if (currentUser?.department_id) {
+      setDepartmentId(currentUser.department_id);
+    }
+  }, [selectedUsers, currentUser]);
 
   // Sync state when task prop changes (e.g. switching task ID)
   const prevTaskIdRef = useRef(task?.id);
@@ -482,7 +512,7 @@ export function EditTaskForm({
       const updatedPayload = {
         title: trimmedTitle,
         description: description.trim(),
-        department_id: departmentId || null,
+        department_id: selectedUsers[0]?.department_id || departmentId || currentUser?.department_id || null,
         assigned_to: assignedIds[0] || null,
         assigned_to_ids: assignedIds,
         assisted_by: assistantIds[0] || null,
@@ -504,8 +534,6 @@ export function EditTaskForm({
     }
   };
 
-  const selectedDeptObj = departments.find((d) => d.id === departmentId);
-
   const getPriorityDisplay = (p) => {
     switch (p) {
       case 'urgent':
@@ -522,30 +550,28 @@ export function EditTaskForm({
 
   const priorityInfo = getPriorityDisplay(priority);
 
-  // Unauthorized State
+  // If user cannot edit, show restricted banner
   if (!canEdit) {
     return (
-      <div className="p-8 text-center bg-white rounded-[12px] border border-[#E5E7EB] space-y-3 font-['Inter']">
-        <div className="w-10 h-10 rounded-full bg-red-50 text-[#DC2626] flex items-center justify-center mx-auto">
+      <div className="p-5 bg-[#F9FAFB] rounded-[10px] border border-[#E5E7EB] text-center space-y-3">
+        <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-700">
           <ShieldAlert className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="text-[14.5px] font-semibold text-[#18181B]">
-            Permission Denied
-          </h3>
-          <p className="text-[12.5px] text-[#71717A] mt-1">
-            You don't have permission to edit this task. Only administrators or task assigners can edit task details.
+          <h4 className="text-[13px] font-semibold text-[#18181B]">Editing Restricted</h4>
+          <p className="text-[12px] text-[#71717A] mt-1 max-w-sm mx-auto">
+            You do not have permission to edit this task directly. Only the Task Creator, Assignees, HOD, or Admin can make modifications.
           </p>
         </div>
-        <div className="pt-2">
+        {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-[8px] bg-[#F4F4F5] hover:bg-[#E5E7EB] text-[12.5px] font-medium text-[#18181B] transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-[6px] bg-white border border-[#E5E7EB] text-[12px] font-medium text-[#18181B] hover:bg-[#F4F4F5] transition-colors cursor-pointer"
           >
-            Close
+            Back to Details
           </button>
-        </div>
+        )}
       </div>
     );
   }
@@ -634,51 +660,7 @@ export function EditTaskForm({
 
       {/* 3. 2-Column Property Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        {/* Department Field */}
-        <div className="space-y-1.5" ref={deptRef}>
-          <label className="block text-[12px] font-semibold text-[#18181B]">
-            Department
-          </label>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsDeptDropdownOpen((prev) => !prev)}
-              className="w-full h-10 px-3 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] flex items-center justify-between text-[#18181B] transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2 truncate">
-                <Building2 className="w-3.5 h-3.5 text-[#8B8B95] flex-shrink-0" />
-                <span className="truncate">{selectedDeptObj?.name || 'Select Department'}</span>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-[#8B8B95] flex-shrink-0 ml-1" />
-            </button>
-
-            {isDeptDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1 z-50 animate-fade-in max-h-56 overflow-y-auto space-y-0.5 text-left">
-                {allowedDepartments.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => {
-                      setDepartmentId(d.id);
-                      setIsDeptDropdownOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
-                      departmentId === d.id ? 'bg-[#F4F4F5] font-semibold text-[#18181B]' : 'text-[#52525B]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Building2 className="w-3.5 h-3.5 text-[#8B8B95]" />
-                      <span className="truncate">{d.name}</span>
-                    </div>
-                    {departmentId === d.id && <Check className="w-3.5 h-3.5 text-[#059669]" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Assignee Field (Multi-user Combobox) */}
+        {/* Row 1 Left: Assignee Field (Multi-user Combobox) */}
         <div className="space-y-1.5" ref={userSearchRef}>
           <label className="block text-[12px] font-semibold text-[#18181B]">
             Assignee <span className="text-[#DC2626]">*</span>
@@ -763,7 +745,92 @@ export function EditTaskForm({
           </div>
         </div>
 
-        {/* Priority Field */}
+        {/* Row 1 Right: Assistant Users Field (Multi-user Combobox) */}
+        <div className="space-y-1.5" ref={assistantSearchRef}>
+          <label className="block text-[12px] font-semibold text-[#18181B]">
+            Assistant Users
+          </label>
+          <div className="relative">
+            <div
+              onClick={() => setIsAssistantDropdownOpen(true)}
+              className="min-h-10 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] flex items-center flex-wrap gap-1.5 transition-colors cursor-pointer"
+            >
+              {selectedAssistants.length === 0 ? (
+                <span className="text-[#8B8B95] text-[12.5px] pl-1">Search team members...</span>
+              ) : (
+                selectedAssistants.map((ast) => (
+                  <span
+                    key={ast.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-[#F4F4F5] border border-[#E5E7EB] text-[12px] font-medium text-[#18181B]"
+                  >
+                    <Avatar src={ast.avatar_url} name={ast.full_name} size="xs" />
+                    <span className="max-w-[120px] truncate">{ast.full_name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveAssistant(ast.id);
+                      }}
+                      className="text-[#8B8B95] hover:text-[#DC2626] cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+
+            {isAssistantDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1.5 z-50 animate-fade-in space-y-1 text-left">
+                <div className="flex items-center gap-2 px-2 py-1 bg-[#F5F6F8] rounded-[6px] border border-[#E5E7EB]">
+                  <Search className="w-3.5 h-3.5 text-[#8B8B95]" />
+                  <input
+                    type="text"
+                    value={assistantSearch}
+                    onChange={(e) => setAssistantSearch(e.target.value)}
+                    placeholder="Search assistants..."
+                    className="w-full bg-transparent text-[12px] text-[#18181B] placeholder-[#8B8B95] outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-0.5 pt-1">
+                  {filteredAssistants.length === 0 ? (
+                    <p className="text-[11.5px] text-[#8B8B95] text-center py-2">No matching users</p>
+                  ) : (
+                    filteredAssistants.map((u) => {
+                      const isSelected = selectedAssistants.some((sel) => sel.id === u.id);
+                      const userDept = departments.find((d) => d.id === u.department_id);
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => handleToggleAssistant(u)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
+                            isSelected ? 'bg-[#ECFDF5] text-[#059669] font-medium' : 'text-[#18181B]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar src={u.avatar_url} name={u.full_name} size="xs" />
+                            <div className="text-left min-w-0">
+                              <p className="font-medium truncate">{u.full_name}</p>
+                              <p className="text-[10.5px] text-[#71717A] truncate">
+                                {userDept?.name || u.designation || u.role}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#059669]" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2 Left: Priority Field */}
         <div className="space-y-1.5" ref={priorityRef}>
           <label className="block text-[12px] font-semibold text-[#18181B]">
             Priority
@@ -810,7 +877,7 @@ export function EditTaskForm({
           </div>
         </div>
 
-        {/* Status Field */}
+        {/* Row 2 Right: Status Field */}
         <div className="space-y-1.5" ref={statusRef}>
           <label className="block text-[12px] font-semibold text-[#18181B]">
             Status
@@ -901,7 +968,7 @@ export function EditTaskForm({
           </div>
         </div>
 
-        {/* Start Date Field */}
+        {/* Row 3 Left: Start Date Field */}
         <div className="space-y-1.5">
           <label htmlFor="edit-task-start-date-input" className="block text-[12px] font-semibold text-[#18181B]">
             Start Date <span className="text-[#DC2626]">*</span>
@@ -917,7 +984,7 @@ export function EditTaskForm({
           </div>
         </div>
 
-        {/* Due Date Field */}
+        {/* Row 3 Right: Due Date Field */}
         <div className="space-y-1.5">
           <label htmlFor="edit-task-due-date-input" className="block text-[12px] font-semibold text-[#18181B]">
             Due Date <span className="text-[#DC2626]">*</span>
@@ -931,91 +998,6 @@ export function EditTaskForm({
               className="w-full h-10 px-3 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669] text-[#18181B] text-[12.5px] transition-colors outline-none cursor-pointer"
             />
           </div>
-        </div>
-      </div>
-
-      {/* 4. Assistant Users Section */}
-      <div className="space-y-1.5 pt-1" ref={assistantSearchRef}>
-        <label className="block text-[12px] font-semibold text-[#18181B]">
-          Assistant Users
-        </label>
-        <div className="relative">
-          <div
-            onClick={() => setIsAssistantDropdownOpen(true)}
-            className="min-h-10 px-2.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] flex items-center flex-wrap gap-1.5 transition-colors cursor-pointer"
-          >
-            {selectedAssistants.length === 0 ? (
-              <span className="text-[#8B8B95] text-[12.5px] pl-1">Search team members...</span>
-            ) : (
-              selectedAssistants.map((ast) => (
-                <span
-                  key={ast.id}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-[#F4F4F5] border border-[#E5E7EB] text-[12px] font-medium text-[#18181B]"
-                >
-                  <Avatar src={ast.avatar_url} name={ast.full_name} size="xs" />
-                  <span className="max-w-[120px] truncate">{ast.full_name}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveAssistant(ast.id);
-                    }}
-                    className="text-[#8B8B95] hover:text-[#DC2626] cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))
-            )}
-          </div>
-
-          {isAssistantDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-[8px] border border-[#E5E7EB] shadow-xl p-1.5 z-50 animate-fade-in space-y-1 text-left">
-              <div className="flex items-center gap-2 px-2 py-1 bg-[#F5F6F8] rounded-[6px] border border-[#E5E7EB]">
-                <Search className="w-3.5 h-3.5 text-[#8B8B95]" />
-                <input
-                  type="text"
-                  value={assistantSearch}
-                  onChange={(e) => setAssistantSearch(e.target.value)}
-                  placeholder="Search assistants..."
-                  className="w-full bg-transparent text-[12px] text-[#18181B] placeholder-[#8B8B95] outline-none"
-                  autoFocus
-                />
-              </div>
-
-              <div className="max-h-48 overflow-y-auto space-y-0.5 pt-1">
-                {filteredAssistants.length === 0 ? (
-                  <p className="text-[11.5px] text-[#8B8B95] text-center py-2">No matching users</p>
-                ) : (
-                  filteredAssistants.map((u) => {
-                    const isSelected = selectedAssistants.some((sel) => sel.id === u.id);
-                    const userDept = departments.find((d) => d.id === u.department_id);
-                    return (
-                      <button
-                        key={u.id}
-                        type="button"
-                        onClick={() => handleToggleAssistant(u)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[12px] cursor-pointer hover:bg-[#F5F6F8] ${
-                          isSelected ? 'bg-[#ECFDF5] text-[#059669] font-medium' : 'text-[#18181B]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Avatar src={u.avatar_url} name={u.full_name} size="xs" />
-                          <div className="text-left min-w-0">
-                            <p className="font-medium truncate">{u.full_name}</p>
-                            <p className="text-[10.5px] text-[#71717A] truncate">
-                              {userDept?.name || u.designation || u.role}
-                            </p>
-                          </div>
-                        </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#059669]" />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

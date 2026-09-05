@@ -1,4 +1,4 @@
-import { isTaskInDepartment, getTaskAssigneeIds, getTaskAssistantIds } from '../taskDepartmentUtils';
+import { isTaskInDepartment, getTaskAssigneeIds, getTaskAssistantIds } from '../taskDepartmentUtils.js';
 
 /**
  * UPCOMM SOLUTIONS ROLE-BASED ACCESS CONTROL (RBAC) SYSTEM
@@ -73,6 +73,14 @@ export const ROLE_DEFAULTS = {
 
     // Settings
     'settings.manage': true,
+
+    // Messaging & Moderation
+    'messages.send_direct': true,
+    'messages.create_group': true,
+    'messages.send_broadcast': true,
+    'messages.cross_department': true,
+    'messages.report': true,
+    'message_reports.manage': true,
   },
 
   it_support_admin: {
@@ -93,6 +101,12 @@ export const ROLE_DEFAULTS = {
     'permissions.manage': true,
     'reports.view_scope': 'company',
     'settings.manage': true,
+    'messages.send_direct': true,
+    'messages.create_group': true,
+    'messages.send_broadcast': true,
+    'messages.cross_department': true,
+    'messages.report': true,
+    'message_reports.manage': true,
   },
 
   hod: {
@@ -113,6 +127,12 @@ export const ROLE_DEFAULTS = {
     'permissions.manage': false,
     'reports.view_scope': 'none', // Admin can override to 'department'
     'settings.manage': false,
+    'messages.send_direct': true,
+    'messages.create_group': true,
+    'messages.send_broadcast': true,
+    'messages.cross_department': true,
+    'messages.report': true,
+    'message_reports.manage': false,
   },
 
   team_member: {
@@ -133,6 +153,12 @@ export const ROLE_DEFAULTS = {
     'permissions.manage': false,
     'reports.view_scope': 'none',
     'settings.manage': false,
+    'messages.send_direct': true,
+    'messages.create_group': true,
+    'messages.send_broadcast': true,
+    'messages.cross_department': true,
+    'messages.report': true,
+    'message_reports.manage': false,
   },
 };
 

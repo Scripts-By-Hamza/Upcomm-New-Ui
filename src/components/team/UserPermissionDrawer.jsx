@@ -16,6 +16,7 @@ import {
   Users as UsersIcon,
   Lock,
   Info,
+  MessageSquare,
 } from 'lucide-react';
 import {
   ROLE_DEFINITIONS,
@@ -607,6 +608,131 @@ export function UserPermissionDrawer({
                   </label>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Group 6: Private Messaging & Moderation */}
+          <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-[10px] p-4 space-y-3.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-[#059669]" />
+                <h3 className="text-[13.5px] font-bold text-[#18181B] dark:text-[#F4F4F5]">
+                  Private Messaging & Moderation
+                </h3>
+              </div>
+              <span className="text-[11px] text-[#71717A] dark:text-[#A1A1AA]">
+                {roleInfo.label} Permissions
+              </span>
+            </div>
+
+            <div className="divide-y divide-[#F4F4F5] dark:divide-[#27272A] pt-1">
+              <div className="py-2.5 flex items-center justify-between gap-3 first:pt-0">
+                <div>
+                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                    Send Direct Messages
+                  </div>
+                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                    Allow starting 1-on-1 private conversations with colleagues.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={effectivePermissions['messages.send_direct']}
+                  disabled={isAdmin}
+                  onChange={() => handleToggleBoolean('messages.send_direct')}
+                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                    Create Group Conversations
+                  </div>
+                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                    Allow creating multi-user private group chats.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={effectivePermissions['messages.create_group']}
+                  disabled={isAdmin}
+                  onChange={() => handleToggleBoolean('messages.create_group')}
+                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                    Send Broadcast Messages
+                  </div>
+                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                    Send a private broadcast message simultaneously to multiple recipients.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={effectivePermissions['messages.send_broadcast']}
+                  disabled={isAdmin}
+                  onChange={() => handleToggleBoolean('messages.send_broadcast')}
+                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                    Cross-Department Messaging
+                  </div>
+                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                    Allow messaging colleagues in other departments.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={effectivePermissions['messages.cross_department']}
+                  disabled={isAdmin}
+                  onChange={() => handleToggleBoolean('messages.cross_department')}
+                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                    Report Inappropriate Messages
+                  </div>
+                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                    Allow reporting received messages to administrators for moderation.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={effectivePermissions['messages.report']}
+                  disabled={isAdmin}
+                  onChange={() => handleToggleBoolean('messages.report')}
+                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className="py-2.5 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                    Manage Message Reports & Moderation
+                  </div>
+                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
+                    Access the moderation inbox to review and resolve reported messages.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={effectivePermissions['message_reports.manage']}
+                  disabled={isAdmin}
+                  onChange={() => handleToggleBoolean('message_reports.manage')}
+                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
           </div>
 

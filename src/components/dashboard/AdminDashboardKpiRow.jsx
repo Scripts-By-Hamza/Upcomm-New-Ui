@@ -12,6 +12,12 @@ export function AdminDashboardKpiRow({
   createdThisWeekCount = 0,
   createdByCount = 0,
   assignedToCount = 0,
+  inProgressCreatedCount = 0,
+  inProgressAssignedCount = 0,
+  overdueCreatedCount = 0,
+  overdueAssignedCount = 0,
+  completedCreatedCount = 0,
+  completedAssignedCount = 0,
 }) {
   const navigate = useNavigate();
 
@@ -49,9 +55,19 @@ export function AdminDashboardKpiRow({
       label: 'In Progress',
       value: inProgressCount,
       subtextNode: (
-        <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-[#71717A]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] flex-shrink-0"></span>
-          <span>{inProgressPercentage}% of active work</span>
+        <div className="mt-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-[#71717A]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] flex-shrink-0"></span>
+            <span>{inProgressPercentage}% of active work</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#71717A]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Created <span className="font-semibold text-[#18181B]">{inProgressCreatedCount}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Assigned <span className="font-semibold text-[#18181B]">{inProgressAssignedCount}</span>
+            </span>
+          </div>
         </div>
       ),
       icon: CircleDot,
@@ -64,9 +80,19 @@ export function AdminDashboardKpiRow({
       label: 'Overdue',
       value: overdueCount,
       subtextNode: (
-        <div className={`mt-2 flex items-center gap-1.5 text-[12px] font-medium ${overdueCount > 0 ? 'text-[#DC2626]' : 'text-[#059669]'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${overdueCount > 0 ? 'bg-[#DC2626]' : 'bg-[#10B981]'} flex-shrink-0`}></span>
-          <span>{overdueCount > 0 ? `${overdueCount} need attention` : 'All on track'}</span>
+        <div className="mt-2 space-y-1.5">
+          <div className={`flex items-center gap-1.5 text-[12px] font-medium ${overdueCount > 0 ? 'text-[#DC2626]' : 'text-[#059669]'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${overdueCount > 0 ? 'bg-[#DC2626]' : 'bg-[#10B981]'} flex-shrink-0`}></span>
+            <span>{overdueCount > 0 ? `${overdueCount} need attention` : 'All on track'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#71717A]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Created <span className="font-semibold text-[#18181B]">{overdueCreatedCount}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Assigned <span className="font-semibold text-[#18181B]">{overdueAssignedCount}</span>
+            </span>
+          </div>
         </div>
       ),
       icon: AlertCircle,
@@ -79,9 +105,19 @@ export function AdminDashboardKpiRow({
       label: 'Completion Rate',
       value: `${completionRate}%`,
       subtextNode: (
-        <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-[#059669]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] flex-shrink-0"></span>
-          <span>{completedCount} of {totalCount} completed</span>
+        <div className="mt-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-[#059669]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] flex-shrink-0"></span>
+            <span>{completedCount} of {totalCount} completed</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#71717A]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Created <span className="font-semibold text-[#18181B]">{completedCreatedCount}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#F4F4F5] text-[#52525B] font-medium">
+              Assigned <span className="font-semibold text-[#18181B]">{completedAssignedCount}</span>
+            </span>
+          </div>
         </div>
       ),
       icon: TrendingUp,

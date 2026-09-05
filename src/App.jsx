@@ -23,8 +23,9 @@ import { ProfilePage } from './pages/profile/ProfilePage';
 import { ReportsPage } from './pages/reports/ReportsPage';
 import { PersonalTasksPage } from './pages/tasks/PersonalTasksPage';
 import { InboxPage } from './pages/inbox/InboxPage';
-import { CompletionRequestsPage } from './pages/completion-requests/CompletionRequestsPage';
 import { MonthlyTargetsPage } from './pages/performance/MonthlyTargetsPage';
+import { MessagesPage } from './pages/messages/MessagesPage';
+import { MessageReportsPage } from './pages/messages/MessageReportsPage';
 
 export default function App() {
   return (
@@ -104,12 +105,24 @@ export default function App() {
               <Route path="performance/monthly-targets" element={<MonthlyTargetsPage />} />
               <Route path="performance" element={<Navigate to="/monthly-targets" replace />} />
 
+              {/* Private Messaging */}
+              <Route path="messages" element={<MessagesPage />} />
+
               {/* Management Requests & Legacy Request Redirects */}
               <Route path="inbox" element={<InboxPage />} />
               <Route path="requests" element={<InboxPage />} />
               <Route path="delete-requests" element={<Navigate to="/inbox?type=delete" replace />} />
               <Route path="completion-requests" element={<Navigate to="/inbox?type=completion" replace />} />
               <Route path="activity" element={<ActivityLogPage />} />
+              <Route
+                path="management/message-reports"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'it_support_admin']} requiredPermission="message_reports.manage">
+                    <MessageReportsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="message-reports" element={<Navigate to="/management/message-reports" replace />} />
               <Route
                 path="reports"
                 element={

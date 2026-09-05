@@ -53,6 +53,24 @@ export function EditTaskModal({ isOpen, onClose, task }) {
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
+  // Helper to format dates as YYYY-MM-DD
+  const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getFutureDateString = (daysAhead = 7) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Initialize fields when task opens
   useEffect(() => {
     if (task && isOpen) {
@@ -61,8 +79,8 @@ export function EditTaskModal({ isOpen, onClose, task }) {
       setDepartmentId(task.department_id || '');
       setPriority(task.priority || 'medium');
       setStatus(task.status || 'pending');
-      setStartDate(task.start_date || '');
-      setDueDate(task.due_date || '');
+      setStartDate(task.start_date || getTodayDateString());
+      setDueDate(task.due_date || getFutureDateString(7));
 
       const allAssigneeIds = Array.from(
         new Set(task.assigned_to_ids || (task.assigned_to ? [task.assigned_to] : []))
@@ -87,6 +105,18 @@ export function EditTaskModal({ isOpen, onClose, task }) {
       setError('');
     }
   }, [task, isOpen, users]);
+
+  // Auto-sync department when assignee is selected
+  useEffect(() => {
+    if (selectedUsers && selectedUsers.length > 0) {
+      const primaryUser = selectedUsers[0];
+      if (primaryUser?.department_id) {
+        setDepartmentId(primaryUser.department_id);
+      }
+    } else if (currentUser?.department_id) {
+      setDepartmentId(currentUser.department_id);
+    }
+  }, [selectedUsers, currentUser]);
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -328,27 +358,6 @@ export function EditTaskModal({ isOpen, onClose, task }) {
             />
           </div>
 
-          {/* Department */}
-          <div>
-            <label className="block text-[12px] font-semibold text-[#3F3F46] dark:text-[#D4D4D8] mb-1.5">
-              Department
-            </label>
-            <div className="relative">
-              <select
-                value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-                className="w-full px-3 py-2 rounded-[7px] border border-[#E5E7EB] dark:border-[#3F3F46] bg-[#FAFAFA] dark:bg-[#121214] text-[13px] text-[#18181B] dark:text-white focus:bg-white dark:focus:bg-[#18181B] focus:border-[#059669] focus:outline-none cursor-pointer appearance-none"
-              >
-                <option value="">Select Department (Optional)</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-[#8B8B95] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
 
           {/* Assigned Members (Multi-Select) */}
           <div className="space-y-2">
