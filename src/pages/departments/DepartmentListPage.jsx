@@ -146,13 +146,15 @@ export function DepartmentListPage() {
 
   return (
     <div className="space-y-5 max-w-full pb-10">
-      {/* 1. Page Header */}
+      {/* 1. Page Header with New Department & Sort on the right */}
       <DepartmentHeader
         canCreateDepartment={canCreateDepartment}
         onNewDepartment={() => setIsCreateModalOpen(true)}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
       />
 
-      {/* 2. Toolbar with Search & Sort */}
+      {/* 2. Toolbar with Search & Desktop Sort */}
       <DepartmentToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}

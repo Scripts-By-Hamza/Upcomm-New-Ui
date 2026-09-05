@@ -353,8 +353,8 @@ export function TaskToolbar({
     if (isMyTasks) {
       return (
         <>
-          {/* Unread Messages Toggle Button */}
-          {renderUnreadMessagesButton()}
+          {/* Unread Messages Toggle Button (hidden in calendar mode) */}
+          {!isCalendarMode && renderUnreadMessagesButton()}
 
           {/* Status Dropdown */}
           <button
@@ -445,8 +445,8 @@ export function TaskToolbar({
 
     return (
       <>
-        {/* Unread Messages Toggle Button */}
-        {renderUnreadMessagesButton()}
+        {/* Unread Messages Toggle Button (hidden in calendar mode) */}
+        {!isCalendarMode && renderUnreadMessagesButton()}
 
         {/* Assignee Dropdown (Multi-Select with Search) - Admin Only */}
         {!isMyTasks && isAdmin && (
@@ -530,16 +530,10 @@ export function TaskToolbar({
       {activeView === 'calendar' ? (
         /* CALENDAR VIEW TOOLBAR */
         <div className="flex flex-col gap-2.5">
-          {/* Month Navigation Row */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <button
-                type="button"
-                onClick={onToday}
-                className="h-9 px-3 rounded-[8px] border border-[#E5E7EB] bg-white hover:bg-[#F5F6F8] text-[12px] font-semibold text-[#18181B] transition-colors cursor-pointer shadow-2xs flex-shrink-0 outline-none focus:outline-none dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5]"
-              >
-                Today
-              </button>
+          {/* Month Navigation & Filters Row */}
+          <div className="flex items-center justify-between gap-2 w-full">
+            {/* Left: Prev Month Arrow, Month & Year text, Next Month Arrow */}
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <button
                 type="button"
                 onClick={onPrevMonth}
@@ -548,6 +542,9 @@ export function TaskToolbar({
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
+              <h2 className="text-[14.5px] sm:text-[18px] font-bold text-[#18181B] dark:text-[#F4F4F5] tracking-tight px-1 truncate text-center min-w-[125px] sm:min-w-[155px]">
+                {format(currentMonth, 'MMMM yyyy')}
+              </h2>
               <button
                 type="button"
                 onClick={onNextMonth}
@@ -556,12 +553,33 @@ export function TaskToolbar({
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <h2 className="text-[15px] sm:text-[19px] font-bold text-[#18181B] dark:text-[#F4F4F5] tracking-tight px-1 truncate">
-                {format(currentMonth, 'MMMM yyyy')}
-              </h2>
             </div>
 
-            {/* Desktop Month Pill */}
+            {/* Right on Mobile: Filters Button (sm:hidden) */}
+            <div className="sm:hidden flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileModalSearchQuery('');
+                  setShowMobileFilterModal(true);
+                }}
+                className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs flex-shrink-0 whitespace-nowrap outline-none focus:outline-none ${
+                  activeFilterCount > 0
+                    ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399]'
+                    : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B] dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5]'
+                }`}
+              >
+                <Filter className="w-3.5 h-3.5 text-[#71717A] dark:text-[#A1A1AA]" />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-[#059669] text-white text-[10px] font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Right on Desktop: Month Pill (hidden sm:block) */}
             <div className="hidden sm:block relative flex-shrink-0">
               <button
                 type="button"
@@ -571,34 +589,6 @@ export function TaskToolbar({
                 <ChevronDown className="w-3.5 h-3.5 text-[#71717A] dark:text-[#A1A1AA]" />
               </button>
             </div>
-          </div>
-
-          {/* Mobile Calendar Controls (sm:hidden): Left Unread Messages, Right Filters Button */}
-          <div className="flex sm:hidden items-center justify-between gap-2 w-full pt-0.5">
-            <div className="flex-shrink-0">
-              {renderUnreadMessagesButton()}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMobileModalSearchQuery('');
-                setShowMobileFilterModal(true);
-              }}
-              className={`h-9 px-3 rounded-[8px] border text-[12.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs flex-shrink-0 whitespace-nowrap outline-none focus:outline-none ${
-                activeFilterCount > 0
-                  ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-semibold dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399]'
-                  : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B] dark:bg-[#18181B] dark:border-[#27272A] dark:text-[#F4F4F5]'
-              }`}
-            >
-              <Filter className="w-3.5 h-3.5 text-[#71717A] dark:text-[#A1A1AA]" />
-              <span>Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-[#059669] text-white text-[10px] font-bold flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
           </div>
 
           {/* Desktop Calendar Filters (hidden on mobile, visible sm:flex) */}
@@ -1502,14 +1492,41 @@ export function TaskToolbar({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3.5 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#18181B]">
+            <div className="p-3.5 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#18181B] flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowMobileFilterModal(false)}
-                className="w-full py-2.5 bg-[#059669] hover:bg-[#047857] text-white text-[13.5px] font-semibold rounded-[10px] transition-colors cursor-pointer shadow-sm text-center outline-none"
+                className={`py-2.5 bg-[#059669] hover:bg-[#047857] text-white text-[13px] font-semibold rounded-[10px] transition-colors cursor-pointer shadow-sm text-center outline-none ${
+                  !isMyTasks && isAdmin && onToggleLockFilters ? 'w-[70%]' : 'w-full'
+                }`}
               >
                 Apply Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
               </button>
+
+              {!isMyTasks && isAdmin && onToggleLockFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleLockFilters?.();
+                  }}
+                  aria-pressed={isFiltersLocked ? 'true' : 'false'}
+                  aria-label={isFiltersLocked ? 'Unlock filters for this page' : 'Lock filters for this page'}
+                  className={`w-[30%] py-2.5 rounded-[10px] border text-[12px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs select-none outline-none ${
+                    isFiltersLocked
+                      ? 'bg-[#ECFDF5] border-[#A7F3D0] text-[#059669] font-bold dark:bg-[#064E3B]/30 dark:border-[#059669]/50 dark:text-[#34D399]'
+                      : 'bg-white hover:bg-[#F5F6F8] border-[#E5E7EB] text-[#18181B] dark:bg-[#25282E] dark:border-[#373C44] dark:text-[#F4F4F5]'
+                  }`}
+                >
+                  <Lock
+                    className={`w-3.5 h-3.5 ${
+                      isFiltersLocked
+                        ? 'text-[#059669] dark:text-[#34D399]'
+                        : 'text-[#71717A] dark:text-[#A1A1AA]'
+                    }`}
+                  />
+                  <span>{isFiltersLocked ? 'Locked' : 'Lock'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>,
