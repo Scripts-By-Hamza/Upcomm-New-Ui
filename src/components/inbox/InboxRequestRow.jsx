@@ -43,13 +43,15 @@ export function InboxRequestRow({
 
   return (
     <div
-      className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#F9FAFB] transition-colors font-['Inter'] select-none"
+      className="p-4 sm:px-5 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-[#F9FAFB] transition-colors font-['Inter'] select-none"
       style={{ fontFamily: 'Inter, sans-serif' }}
     >
       {/* Left: Icon + Avatar + Details */}
-      <div className="flex items-start gap-3.5 min-w-0 flex-1">
-        {/* Category Icon */}
-        <InboxCategoryIcon type={type} />
+      <div className="flex items-start gap-3 sm:gap-3.5 min-w-0 flex-1">
+        {/* Category Icon (hidden on mobile) */}
+        <div className="hidden sm:block flex-shrink-0">
+          <InboxCategoryIcon type={type} />
+        </div>
 
         {/* Requester Avatar */}
         <div className="flex-shrink-0 pt-0.5">
@@ -57,6 +59,7 @@ export function InboxRequestRow({
             src={requester?.avatar_url}
             name={requesterName}
             size="md"
+            className="w-9 h-9 sm:w-10 sm:h-10"
           />
         </div>
 
@@ -145,43 +148,108 @@ export function InboxRequestRow({
         </div>
       </div>
 
-      {/* Right: Actions / Status Badge */}
-      <div className="flex items-center gap-2.5 flex-shrink-0 sm:self-center pl-14 sm:pl-0">
+      {/* Mobile Actions (< sm): Full-width Bottom Action Bar */}
+      {!isHistory && (
+        <div className="flex sm:hidden items-center gap-2 pt-2.5 border-t border-[#F4F4F5] w-full">
+          {task && (
+            <button
+              type="button"
+              onClick={() => onViewTask(task.id)}
+              disabled={isProcessing}
+              className="flex-1 h-9 rounded-[8px] bg-white border border-[#E5E7EB] hover:bg-[#F5F6F8] text-[12.5px] font-medium text-[#18181B] transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center text-center"
+              aria-label={`View task ${task.task_number || ''}`}
+            >
+              View Task
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onReject(request)}
+            disabled={isProcessing}
+            className="flex-1 h-9 rounded-[8px] bg-white border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 text-[12.5px] font-medium text-[#DC2626] transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center text-center"
+            aria-label={`Reject ${isCompletion ? 'completion' : 'deletion'} request`}
+          >
+            {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Reject'}
+          </button>
+
+          {isCompletion ? (
+            <button
+              type="button"
+              onClick={() => onApprove(request)}
+              disabled={isProcessing}
+              className="flex-1 h-9 rounded-[8px] bg-[#059669] hover:bg-[#047857] text-[12.5px] font-semibold text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs text-center"
+              aria-label={`Approve completion request for ${task?.task_number || 'task'}`}
+            >
+              {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Approve'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onApprove(request)}
+              disabled={isProcessing}
+              className="flex-1 h-9 rounded-[8px] bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[12.5px] font-semibold transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs text-center"
+              aria-label={`Approve deletion request for ${task?.task_number || 'task'}`}
+            >
+              {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Approve'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {isHistory && task && (
+        <div className="flex sm:hidden items-center justify-between gap-2 pt-2.5 border-t border-[#F4F4F5] w-full">
+          <span className="text-[12px] font-medium text-[#71717A]">
+            Status: <span className={isApproved ? 'text-[#059669] font-semibold' : isRejected ? 'text-[#DC2626] font-semibold' : 'text-[#D97706]'}>{isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Pending'}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => onViewTask(task.id)}
+            className="px-3.5 py-1.5 rounded-[8px] bg-white border border-[#E5E7EB] hover:bg-[#F5F6F8] text-[12px] font-medium text-[#18181B] transition-colors cursor-pointer"
+            aria-label={`View task ${task.task_number || ''}`}
+          >
+            View Task
+          </button>
+        </div>
+      )}
+
+      {/* Desktop Actions (hidden sm:flex): Right-aligned horizontal row */}
+      <div className="hidden sm:flex items-center gap-2.5 flex-shrink-0 sm:self-center">
         {/* History Mode: Render Status Badges */}
         {isHistory ? (
           <>
             {isCompletion && status === 'pending' && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                 <Clock className="w-3.5 h-3.5 text-amber-600" />
                 <span>Awaiting Approval</span>
               </span>
             )}
             {isCompletion && isApproved && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A]" />
                 <span>Approved</span>
               </span>
             )}
             {isCompletion && isRejected && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]">
                 <XCircle className="w-3.5 h-3.5 text-[#DC2626]" />
                 <span>Rejected</span>
               </span>
             )}
             {isDelete && status === 'pending' && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                 <Clock className="w-3.5 h-3.5 text-amber-600" />
                 <span>Awaiting Approval</span>
               </span>
             )}
             {isDelete && isApproved && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]">
                 <Trash2 className="w-3.5 h-3.5 text-[#DC2626]" />
                 <span>Deleted</span>
               </span>
             )}
             {isDelete && isRejected && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#F4F4F5] text-[#71717A] border border-[#E4E4E7]">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#F4F4F5] text-[#71717A] border border-[#E4E4E7]">
                 <XCircle className="w-3.5 h-3.5 text-[#71717A]" />
                 <span>Rejected</span>
               </span>
