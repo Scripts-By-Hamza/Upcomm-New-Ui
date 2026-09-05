@@ -23,10 +23,10 @@ export function NotificationBell({
       aria-expanded={isOpen}
       aria-haspopup="dialog"
       aria-label={accessibleLabel}
-      className={`relative p-2 rounded-[8px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#059669]/30 ${
+      className={`relative w-9 h-9 flex items-center justify-center rounded-[8px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#059669]/30 flex-shrink-0 ${
         isOpen
           ? 'bg-[#F5F6F8] text-[#18181B]'
-          : 'text-[#71717A] hover:text-[#18181B] hover:bg-[#F5F6F8]'
+          : 'text-[#52525B] hover:text-[#18181B] hover:bg-[#F5F6F8]'
       }`}
       title={accessibleLabel}
     >

@@ -88,7 +88,7 @@ export function DashboardRecentActivity({ activityLogs = [], users = [], tasks =
   }, [activityLogs, userMap, taskMap]);
 
   return (
-    <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-5 shadow-none select-none flex flex-col justify-between">
+    <div className="hidden sm:flex bg-white border border-[#E5E7EB] rounded-[10px] p-5 shadow-none select-none flex-col justify-between">
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[15px] sm:text-[16px] font-semibold text-[#18181B]">

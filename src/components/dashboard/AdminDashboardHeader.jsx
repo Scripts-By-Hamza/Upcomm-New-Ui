@@ -60,7 +60,7 @@ export function AdminDashboardHeader({
       </div>
 
       {/* Right: Live Formatted Date & Compact Filter Dropdown */}
-      <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+      <div className="flex items-center gap-3 self-end sm:self-auto flex-wrap">
         <span className="text-[13.5px] text-[#52525B] font-medium hidden md:inline-block">
           {todayFormatted}
         </span>
@@ -78,7 +78,7 @@ export function AdminDashboardHeader({
           </button>
 
           {showFilterDropdown && (
-            <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-[10px] border border-[#E5E7EB] shadow-lg p-2 z-50 animate-fade-in space-y-1">
+            <div className="absolute right-0 top-full mt-1.5 w-60 sm:w-56 max-w-[calc(100vw-32px)] bg-white rounded-[10px] border border-[#E5E7EB] shadow-[0_10px_30px_rgba(24,24,27,0.12)] p-2 z-50 animate-fade-in space-y-1">
               <div className="px-2 py-1 text-[11px] font-semibold text-[#8B8B95] uppercase tracking-wider">
                 Filter Duration
               </div>

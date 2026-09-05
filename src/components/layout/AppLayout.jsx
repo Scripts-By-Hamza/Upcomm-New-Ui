@@ -3,7 +3,8 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileDrawer } from './MobileDrawer';
 import { ChangePasswordAlert } from '../auth/ChangePasswordAlert';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { CommandPalette } from '../command/CommandPalette';
 import { TaskDetailDrawer } from '../tasks/detail/TaskDetailDrawer';
 import { EditTaskDrawer } from '../tasks/edit/EditTaskDrawer';
@@ -14,6 +15,7 @@ import { useAppData } from '../../contexts/AppDataContext';
 export function AppLayout() {
   const { createPersonalTask } = useAppData();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMessagesPage = location.pathname === '/messages';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -143,6 +145,19 @@ export function AppLayout() {
           onClose={() => setGlobalCreatePersonalTaskOpen(false)}
           onCreate={createPersonalTask}
         />
+      )}
+
+      {/* Mobile Floating Action Button (FAB) for Add Task */}
+      {!isMessagesPage && location.pathname !== '/tasks/create' && (
+        <button
+          type="button"
+          onClick={() => navigate('/tasks/create')}
+          aria-label="Add Task"
+          title="Add Task"
+          className="sm:hidden fixed bottom-6 right-5 z-40 w-12 h-12 rounded-full bg-[#059669] hover:bg-[#047857] active:scale-95 text-white flex items-center justify-center shadow-[0_8px_24px_rgba(5,150,105,0.4)] transition-all cursor-pointer border border-[#047857]/20"
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
       )}
     </div>
   );

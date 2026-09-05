@@ -39,24 +39,24 @@ export function DepartmentKpiRow({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 select-none">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 select-none">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
           <div
             key={card.id}
-            className="bg-white border border-[#E5E7EB] rounded-[10px] p-5 flex items-center gap-4 min-h-[104px] shadow-none"
+            className="bg-white border border-[#E5E7EB] rounded-[10px] p-3 sm:p-5 flex items-center gap-2.5 sm:gap-4 min-h-[86px] sm:min-h-[104px] shadow-none"
           >
-            <div className="w-10 h-10 rounded-[8px] bg-[#F4F4F5] flex items-center justify-center flex-shrink-0 text-[#71717A]">
-              <Icon className="w-5 h-5 text-[#71717A]" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-[8px] bg-[#F4F4F5] flex items-center justify-center flex-shrink-0 text-[#71717A]">
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#71717A]" />
             </div>
 
             <div className="min-w-0">
-              <span className="text-[12.5px] font-medium text-[#52525B] block truncate">
+              <span className="text-[11px] sm:text-[12.5px] font-medium text-[#52525B] block truncate">
                 {card.label}
               </span>
               <span
-                className={`text-[26px] sm:text-[28px] font-semibold tracking-tight mt-0.5 block leading-tight ${card.valueColor}`}
+                className={`text-[20px] sm:text-[28px] font-semibold tracking-tight mt-0.5 block leading-tight ${card.valueColor}`}
               >
                 {card.value}
               </span>

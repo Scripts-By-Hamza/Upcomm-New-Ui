@@ -44,7 +44,7 @@ export function Avatar({
         <img
           src={avatarSrc}
           alt={avatarName}
-          className={`${sizeClasses[size] || 'w-8 h-8'} rounded-full object-cover ring-2 ring-white shadow-sm`}
+          className={`${sizeClasses[size] || 'w-8 h-8'} rounded-full object-cover ring-2 ring-white shadow-sm flex-shrink-0 aspect-square`}
           onError={(e) => {
             e.target.onerror = null;
             e.target.style.display = 'none';
@@ -52,7 +52,7 @@ export function Avatar({
         />
       ) : (
         <div
-          className={`${sizeClasses[size] || 'w-8 h-8'} rounded-full bg-emerald-600 text-white font-semibold flex items-center justify-center ring-2 ring-white shadow-sm`}
+          className={`${sizeClasses[size] || 'w-8 h-8'} rounded-full bg-emerald-600 text-white font-semibold flex items-center justify-center ring-2 ring-white shadow-sm flex-shrink-0 aspect-square`}
         >
           {initials}
         </div>

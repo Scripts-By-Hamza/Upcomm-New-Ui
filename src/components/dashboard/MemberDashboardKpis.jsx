@@ -50,29 +50,29 @@ export function MemberDashboardKpis({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 select-none">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 select-none">
       {kpis.map((kpi) => {
         const Icon = kpi.icon;
         return (
           <div
             key={kpi.id}
             onClick={kpi.onClick}
-            className="bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] rounded-[10px] p-4 sm:p-5 transition-all cursor-pointer shadow-none flex items-start gap-4 min-h-[96px] group"
+            className="bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] rounded-[10px] p-3 sm:p-5 transition-all cursor-pointer shadow-none flex items-start gap-2.5 sm:gap-4 min-h-[86px] sm:min-h-[96px] group"
           >
             {/* Left Icon */}
             <div className="pt-0.5 flex-shrink-0">
               <Icon
-                className={`w-8 h-8 ${kpi.iconColor} stroke-[1.5] group-hover:scale-105 transition-transform`}
+                className={`w-6 h-6 sm:w-8 sm:h-8 ${kpi.iconColor} stroke-[1.5] group-hover:scale-105 transition-transform`}
               />
             </div>
 
             {/* Right Metric Content */}
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium text-[#71717A] leading-tight">
+              <div className="text-[11.5px] sm:text-[13px] font-medium text-[#71717A] leading-tight truncate">
                 {kpi.label}
               </div>
               <div
-                className={`text-[28px] font-bold tracking-tight mt-1.5 leading-none ${kpi.valueColor}`}
+                className={`text-[22px] sm:text-[28px] font-bold tracking-tight mt-1 sm:mt-1.5 leading-none ${kpi.valueColor}`}
               >
                 {kpi.value}
               </div>

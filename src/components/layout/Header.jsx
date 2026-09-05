@@ -195,26 +195,16 @@ export function Header({
           <button
             type="button"
             onClick={onOpenMobileMenu}
-            className="lg:hidden p-2 rounded-[7px] text-[#71717A] hover:bg-[#F5F6F8] hover:text-[#18181B] transition-colors"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-[8px] text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B] transition-colors flex-shrink-0"
             aria-label="Open navigation menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 text-[#52525B]" />
           </button>
 
-          <button
-            type="button"
-            onClick={handleOpenSearchPalette}
-            className="md:hidden p-2 rounded-[7px] text-[#71717A] hover:bg-[#F5F6F8] hover:text-[#18181B] transition-colors"
-            title="Search (Ctrl + K)"
-            aria-label="Open search command palette"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-
-          {/* Breadcrumb */}
+          {/* Breadcrumb (Visible on all screen sizes) */}
           <nav
             aria-label="Breadcrumb"
-            className="hidden sm:flex items-center gap-1.5 text-[13px]"
+            className="flex items-center gap-1 sm:gap-1.5 text-[12.5px] sm:text-[13px] min-w-0"
           >
             {breadcrumbs.map((crumb, idx) => {
               const isLast = idx === breadcrumbs.length - 1;
@@ -225,12 +215,12 @@ export function Header({
                     <button
                       type="button"
                       onClick={() => navigate(crumb.to)}
-                      className="text-[#71717A] hover:text-[#18181B] transition-colors font-medium cursor-pointer"
+                      className="text-[#71717A] hover:text-[#18181B] transition-colors font-medium cursor-pointer truncate max-w-[90px] sm:max-w-none"
                     >
                       {crumb.label}
                     </button>
                   ) : (
-                    <span className="text-[#18181B] font-semibold">
+                    <span className="text-[#18181B] font-semibold truncate max-w-[140px] sm:max-w-none">
                       {crumb.label}
                     </span>
                   )}
@@ -259,14 +249,25 @@ export function Header({
           </button>
         </div>
 
-        {/* Right: Synced Status, Bell, + New Task, User Avatar */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Synced Status Indicator */}
+        {/* Right: Search (Mobile), Synced Status, Bell, + New Task, User Avatar */}
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          {/* Mobile Search Button (Placed next to Notification Bell) */}
+          <button
+            type="button"
+            onClick={handleOpenSearchPalette}
+            className="md:hidden w-9 h-9 flex items-center justify-center rounded-[8px] text-[#52525B] hover:bg-[#F5F6F8] hover:text-[#18181B] transition-colors flex-shrink-0"
+            title="Search (Ctrl + K)"
+            aria-label="Open search command palette"
+          >
+            <Search className="w-5 h-5 text-[#52525B]" />
+          </button>
+
+          {/* Synced Status Indicator (Desktop/Tablet only) */}
           <button
             type="button"
             onClick={() => refreshAllData()}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[7px] text-[12.5px] text-[#059669] hover:bg-[#ECFDF5] transition-colors cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-[7px] text-[12.5px] text-[#059669] hover:bg-[#ECFDF5] transition-colors cursor-pointer"
             title={
               isRefreshing
                 ? 'Syncing data from database...'
@@ -282,13 +283,13 @@ export function Header({
             ) : (
               <Check className="w-3.5 h-3.5 text-[#059669] stroke-[2.5]" />
             )}
-            <span className="font-medium text-[#059669] hidden sm:inline">
+            <span className="font-medium text-[#059669]">
               {isRefreshing ? 'Syncing...' : 'Synced'}
             </span>
           </button>
 
           {/* Global Notification Bell & Popover Container */}
-          <div ref={notificationMenuRef} className="relative">
+          <div ref={notificationMenuRef} className="relative flex-shrink-0 flex items-center justify-center">
             <NotificationBell
               unreadCount={unreadCount}
               isOpen={showNotificationMenu}
@@ -305,21 +306,21 @@ export function Header({
             />
           </div>
 
-          {/* + New Task Button */}
+          {/* + New Task Button (Desktop/Tablet only) */}
           <button
             type="button"
             onClick={() => navigate('/tasks/create')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-[8px] text-[13px] font-medium transition-colors cursor-pointer shadow-none flex-shrink-0"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded-[8px] text-[13px] font-medium transition-colors cursor-pointer shadow-none flex-shrink-0"
           >
             <Plus className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">New Task</span>
+            <span>New Task</span>
           </button>
 
           {/* User Profile Avatar */}
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="p-0.5 rounded-full hover:ring-2 hover:ring-[#059669] transition-all cursor-pointer flex-shrink-0"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:ring-2 hover:ring-[#059669]/50 transition-all cursor-pointer flex-shrink-0"
             title="Profile"
             aria-label="Profile"
           >
