@@ -53,7 +53,9 @@ export function MessagesPage() {
     if (urlConvId && userConversations.some((c) => String(c.id) === String(urlConvId))) {
       return urlConvId;
     }
-    return userConversations[0]?.id || null;
+    // On desktop, auto-select first conversation. On mobile (< 768px), start on the conversation list
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+    return isDesktop ? userConversations[0]?.id || null : null;
   });
 
   // Handle ?userId param to open/create direct chat without duplicate loops
@@ -109,8 +111,13 @@ export function MessagesPage() {
       if (activeConversationId !== urlConvId) {
         setActiveConversationId(urlConvId);
       }
-    } else if (!activeConversationId && userConversations.length > 0) {
-      setActiveConversationId(userConversations[0].id);
+    } else if (!urlConvId) {
+      // If URL param is removed or not present:
+      // On desktop (width >= 768px), ensure first conversation is selected if none is active
+      const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+      if (isDesktop && !activeConversationId && userConversations.length > 0) {
+        setActiveConversationId(userConversations[0].id);
+      }
     }
   }, [urlConvId, userConversations, activeConversationId]);
 
@@ -126,6 +133,11 @@ export function MessagesPage() {
     setSearchParams({ conversationId: convId });
     setReplyingTo(null);
   };
+
+  const handleBackToList = useCallback(() => {
+    setActiveConversationId(null);
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
 
   const handleSendMessage = async ({ body = '', replyToId = null, attachments = [] }) => {
     const hasBody = typeof body === 'string' && body.trim().length > 0;
@@ -220,9 +232,9 @@ export function MessagesPage() {
   }, [currentMatchIndex, matchingMessageIds, handleJumpToMessage]);
 
   return (
-    <div className="w-full h-[calc(100dvh-5.5rem)] sm:h-[calc(100dvh-5.8rem)] flex flex-col min-h-0 overflow-hidden font-['Inter'] pb-2">
-      {/* Main Messaging Workspace Surface (Full Remaining Viewport, No Outer Page Header) */}
-      <div className="flex-1 h-full min-h-0 bg-white dark:bg-[#17191C] border border-[#E5E7EB] dark:border-[#2A2E34] rounded-[10px] overflow-hidden flex shadow-none">
+    <div className="w-full h-full flex-1 flex flex-col min-h-0 overflow-hidden font-['Inter']">
+      {/* Main Messaging Workspace Surface */}
+      <div className="flex-1 h-full min-h-0 bg-white dark:bg-[#17191C] border border-[#E5E7EB] dark:border-[#2A2E34] rounded-none sm:rounded-[10px] overflow-hidden flex shadow-none">
         {/* Left Column: Conversation List (hidden on mobile if a chat is active) */}
         <div
           className={`w-full md:w-80 lg:w-[320px] flex-shrink-0 flex flex-col border-r border-[#E5E7EB] dark:border-[#2A2E34] ${
@@ -251,7 +263,7 @@ export function MessagesPage() {
                 participants={activeParticipants}
                 pinnedMessages={activePins}
                 messages={activeMessages}
-                onBack={() => setActiveConversationId(null)}
+                onBack={handleBackToList}
                 isDetailsOpen={isDetailsOpen}
                 onToggleDetails={() => setIsDetailsOpen(!isDetailsOpen)}
                 onJumpToMessage={handleJumpToMessage}

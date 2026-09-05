@@ -46,7 +46,7 @@ export function AppLayout() {
   }, []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#F7F8FA] dark:bg-[#111315] flex font-sans">
+    <div className="h-screen w-full max-w-full overflow-hidden bg-[#F7F8FA] dark:bg-[#111315] flex font-sans">
       {/* Desktop Left Sidebar */}
       <Sidebar
         className="hidden lg:flex"
@@ -79,7 +79,7 @@ export function AppLayout() {
         <main
           className={`flex-1 w-full max-w-full animate-fade-in flex flex-col ${
             isMessagesPage
-              ? 'px-4 sm:px-6 pt-3 pb-3 overflow-hidden min-h-0'
+              ? 'p-0 sm:px-6 sm:pt-3 sm:pb-3 overflow-hidden min-h-0'
               : 'px-4 sm:px-7 py-5 sm:py-6 overflow-x-hidden'
           }`}
         >

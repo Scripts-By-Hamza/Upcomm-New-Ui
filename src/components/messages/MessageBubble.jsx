@@ -566,7 +566,7 @@ export function MessageBubble({
 
                 {/* Message Body Content */}
                 {message.body && (
-                  <div className="break-words whitespace-pre-wrap select-text pr-1">
+                  <div className="break-words break-all whitespace-pre-wrap select-text pr-1 max-w-full">
                     {renderMessageBody(message.body)}
                   </div>
                 )}

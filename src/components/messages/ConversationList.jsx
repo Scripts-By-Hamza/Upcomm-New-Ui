@@ -14,6 +14,9 @@ import {
   SlidersHorizontal,
   Users,
   Check,
+  MessageSquare,
+  Lock,
+  Radio,
 } from 'lucide-react';
 
 export function ConversationList({
@@ -27,7 +30,7 @@ export function ConversationList({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'unread'
-  const [filterType, setFilterType] = useState('all'); // 'all' | 'direct' | 'group'
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'direct' | 'group' | 'broadcast'
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const filterRef = useRef(null);
@@ -52,12 +55,23 @@ export function ConversationList({
     });
   }, [conversations]);
 
-  // Filter conversations based on search, active tab (all/unread) and filter type (direct/group)
+  // Filter conversations based on search, active tab (all/unread) and filter type (direct/group/broadcast)
   const filteredConversations = useMemo(() => {
     return sortedConversations.filter((c) => {
-      // 1. Direct vs Group filter
-      if (filterType !== 'all' && c.type !== filterType) {
+      // 1. Direct vs Group vs Broadcast filter
+      if (filterType === 'direct' && c.type !== 'direct') {
         return false;
+      }
+      if (filterType === 'group' && c.type !== 'group') {
+        return false;
+      }
+      if (filterType === 'broadcast') {
+        const isBroadcastConv = c.type === 'broadcast';
+        const convMsgs = (messages || []).filter((m) => String(m.conversation_id) === String(c.id));
+        const hasBroadcastMsg = convMsgs.some((m) => m.source_type === 'broadcast');
+        if (!isBroadcastConv && !hasBroadcastMsg) {
+          return false;
+        }
       }
 
       const unreadCount = getConversationUnreadCount(
@@ -103,6 +117,29 @@ export function ConversationList({
     messages,
     users,
   ]);
+
+  // Unread counts per category for bottom badge indicators
+  const unreadDirectCount = useMemo(() => {
+    return sortedConversations
+      .filter((c) => c.type === 'direct')
+      .reduce(
+        (acc, c) =>
+          acc + getConversationUnreadCount(currentUser?.id, c.id, conversationParticipants, messages),
+        0
+      );
+  }, [sortedConversations, currentUser?.id, conversationParticipants, messages]);
+
+  const unreadGroupCount = useMemo(() => {
+    return sortedConversations
+      .filter((c) => c.type === 'group')
+      .reduce(
+        (acc, c) =>
+          acc + getConversationUnreadCount(currentUser?.id, c.id, conversationParticipants, messages),
+        0
+      );
+  }, [sortedConversations, currentUser?.id, conversationParticipants, messages]);
+
+  const totalUnreadCount = unreadDirectCount + unreadGroupCount;
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#17191C] w-full select-none">
@@ -170,8 +207,8 @@ export function ConversationList({
             </button>
           </div>
 
-          {/* Direct / Groups Filter Dropdown */}
-          <div className="relative" ref={filterRef}>
+          {/* Direct / Groups Filter Dropdown (Desktop Only) */}
+          <div className="relative hidden md:block" ref={filterRef}>
             <button
               type="button"
               onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -186,11 +223,12 @@ export function ConversationList({
             </button>
 
             {isFilterOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-36 bg-white dark:bg-[#1D2024] border border-[#E5E7EB] dark:border-[#2A2E34] rounded-[8px] shadow-lg py-1 z-30 animate-fade-in">
+              <div className="absolute right-0 top-full mt-1.5 w-40 bg-white dark:bg-[#1D2024] border border-[#E5E7EB] dark:border-[#2A2E34] rounded-[8px] shadow-lg py-1 z-30 animate-fade-in">
                 {[
                   { id: 'all', label: 'All Types' },
-                  { id: 'direct', label: 'Direct' },
-                  { id: 'group', label: 'Groups' },
+                  { id: 'direct', label: 'Private Chats' },
+                  { id: 'group', label: 'Group Chats' },
+                  { id: 'broadcast', label: 'Broadcasts' },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -219,6 +257,12 @@ export function ConversationList({
               ? 'No conversations match your search.'
               : activeTab === 'unread'
               ? 'No unread conversations.'
+              : filterType === 'direct'
+              ? 'No private conversations yet.'
+              : filterType === 'group'
+              ? 'No group conversations yet.'
+              : filterType === 'broadcast'
+              ? 'No broadcast announcements yet.'
               : 'No conversations yet.'}
           </div>
         ) : (
@@ -380,6 +424,46 @@ export function ConversationList({
             );
           })
         )}
+      </div>
+
+      {/* Bottom Category Toggle Bar (Mobile Only) */}
+      <div className="md:hidden p-1.5 border-t border-[#E5E7EB] dark:border-[#2A2E34] bg-[#F9FAFB] dark:bg-[#1D2024]/80 flex items-center justify-between gap-1 flex-shrink-0 select-none">
+        {[
+          { id: 'all', label: 'All Chats', icon: MessageSquare, unread: totalUnreadCount },
+          { id: 'direct', label: 'Private', icon: Lock, unread: unreadDirectCount },
+          { id: 'group', label: 'Group', icon: Users, unread: unreadGroupCount },
+          { id: 'broadcast', label: 'Broadcast', icon: Radio, unread: 0 },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = filterType === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setFilterType(tab.id)}
+              className={`flex-1 py-1.5 px-1 sm:px-2 rounded-[9px] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer relative min-w-0 ${
+                isActive
+                  ? 'bg-white dark:bg-[#25282E] text-[#059669] dark:text-[#34D399] font-bold shadow-xs border border-[#E5E7EB] dark:border-[#373C44]'
+                  : 'text-[#71717A] dark:text-[#8E949E] hover:text-[#18181B] dark:hover:text-[#F4F4F5] hover:bg-white/60 dark:hover:bg-[#22262B]'
+              }`}
+            >
+              <div className="relative flex items-center justify-center">
+                <Icon className="w-4 h-4" />
+                {tab.unread > 0 && !isActive && (
+                  <span className="absolute -top-1 -right-2 w-2 h-2 rounded-full bg-[#2563EB]" />
+                )}
+              </div>
+              <span className="text-[10px] sm:text-[11px] leading-tight tracking-tight truncate max-w-full">
+                {tab.label}
+              </span>
+              {tab.unread > 0 && isActive && (
+                <span className="absolute top-1 right-1 min-w-[15px] h-[15px] px-1 text-[9px] font-bold bg-[#2563EB] text-white rounded-full flex items-center justify-center shadow-2xs">
+                  {tab.unread > 9 ? '9+' : tab.unread}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
