@@ -1,0 +1,568 @@
+import Papa from 'papaparse';
+
+/**
+ * UPCOMM Task Manager - Canonical CSV Column Headers
+ */
+export const CANONICAL_CSV_HEADERS = [
+  'Task title*',
+  'Description',
+  'Assignee*',
+  'Assistant Users',
+  'Priority',
+  'Status',
+  'Start Date*',
+  'Due Date',
+  'Attachments',
+];
+
+/**
+ * Generate CSV template string
+ */
+export function generateCsvTemplate() {
+  const headers = CANONICAL_CSV_HEADERS.join(',');
+  const row1 = '"Redesign homepage","Update mobile and desktop UI","user1@company.com|user2@company.com","user3@company.com","High","In Progress","2026-09-05","2026-09-15","https://example.com/brief.pdf|https://example.com/mockup.png"';
+  const row2 = '"Research suppliers","","user4@company.com","","Medium","Pending","2026-09-06","",""';
+  return `${headers}\n${row1}\n${row2}`;
+}
+
+/**
+ * Download CSV Template file in the browser
+ */
+export function downloadCsvTemplate(filename = 'upcomm_tasks_template.csv') {
+  const csvContent = '\uFEFF' + generateCsvTemplate(); // Prepend UTF-8 BOM
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Normalize header string for tolerant matching
+ */
+export function normalizeHeaderKey(key = '') {
+  return String(key)
+    .trim()
+    .toLowerCase()
+    .replace(/\*/g, '')
+    .replace(/[\s_-]+/g, '');
+}
+
+/**
+ * Map of normalized key to canonical header name
+ */
+const HEADER_KEY_MAP = {
+  tasktitle: 'title',
+  title: 'title',
+  description: 'description',
+  desc: 'description',
+  assignee: 'assignee',
+  assignees: 'assignee',
+  assignedto: 'assignee',
+  assignedmembers: 'assignee',
+  assistantusers: 'assistants',
+  assistant: 'assistants',
+  assistants: 'assistants',
+  assistedby: 'assistants',
+  priority: 'priority',
+  status: 'status',
+  startdate: 'startDate',
+  start: 'startDate',
+  duedate: 'dueDate',
+  due: 'dueDate',
+  attachments: 'attachments',
+  attachment: 'attachments',
+  links: 'attachments',
+};
+
+/**
+ * Parse date string and ensure strict YYYY-MM-DD
+ */
+export function parseStrictDateString(val) {
+  if (!val) return null;
+  const trimmed = String(val).trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const d = new Date(year, month - 1, day);
+  if (
+    d.getFullYear() !== year ||
+    d.getMonth() !== month - 1 ||
+    d.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * Detect file type / ext from URL
+ */
+function detectUrlTypeAndExt(url) {
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname || '';
+    const ext = pathname.split('.').pop()?.toLowerCase() || '';
+    let category = 'link';
+
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) {
+      category = 'image';
+    } else if (['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(ext)) {
+      category = 'video';
+    } else if (['pdf'].includes(ext)) {
+      category = 'pdf';
+    } else if (['csv', 'xls', 'xlsx'].includes(ext)) {
+      category = 'csv';
+    } else if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) {
+      category = 'doc';
+    }
+
+    const name = pathname.split('/').filter(Boolean).pop() || parsed.hostname;
+    return {
+      name: decodeURIComponent(name),
+      type: category,
+      ext: ext ? ext.toUpperCase() : 'LINK',
+    };
+  } catch (e) {
+    return {
+      name: 'External Link',
+      type: 'link',
+      ext: 'LINK',
+    };
+  }
+}
+
+/**
+ * Check if current user has permission to assign the target user
+ */
+export function checkUserAssignmentPermission(targetUser, currentUser, isAssistant = false) {
+  if (!currentUser || !targetUser) return false;
+
+  const role = currentUser.role || 'team_member';
+  const isAdmin = role === 'admin' || role === 'it_support_admin';
+  const isHod = role === 'hod';
+  const isTeamMember = !isAdmin && !isHod;
+
+  // Admins can assign to anyone active
+  if (isAdmin) return true;
+
+  // HOD can assign:
+  // - Self
+  // - Members in own department (team_member)
+  // - Other HODs (cross-department)
+  // - Admins
+  if (isHod) {
+    if (targetUser.id === currentUser.id) return true;
+    if (targetUser.department_id === currentUser.department_id && targetUser.role === 'team_member') return true;
+    if (targetUser.role === 'admin' || targetUser.role === 'it_support_admin') return true;
+    if (targetUser.role === 'hod') return true;
+    return false;
+  }
+
+  // Team Member can:
+  // - Self-assign
+  // - Assign to any HOD
+  // Assistants:
+  // - Can assign team_members or hod in same department
+  if (isTeamMember) {
+    if (isAssistant) {
+      return (
+        targetUser.id !== currentUser.id &&
+        targetUser.department_id === currentUser.department_id &&
+        (targetUser.role === 'team_member' || targetUser.role === 'hod')
+      );
+    }
+    if (targetUser.id === currentUser.id) return true;
+    if (targetUser.role === 'hod') return true;
+    return false;
+  }
+
+  return targetUser.id === currentUser.id;
+}
+
+/**
+ * Resolve a user token (email or full name) against active directory users
+ */
+export function resolveUserToken(token, activeUsers = []) {
+  if (!token) return { user: null, error: null };
+  const cleaned = String(token).trim();
+  if (!cleaned) return { user: null, error: null };
+
+  const lower = cleaned.toLowerCase();
+
+  // 1. Exact email match (case-insensitive)
+  const emailMatch = activeUsers.find((u) => (u.email || '').trim().toLowerCase() === lower);
+  if (emailMatch) {
+    return { user: emailMatch, error: null };
+  }
+
+  // 2. Exact user ID match (if ID was deliberately passed)
+  const idMatch = activeUsers.find((u) => u.id === cleaned);
+  if (idMatch) {
+    return { user: idMatch, error: null };
+  }
+
+  // 3. Exact full-name match fallback
+  const nameMatches = activeUsers.filter(
+    (u) => (u.full_name || '').trim().toLowerCase() === lower
+  );
+
+  if (nameMatches.length === 1) {
+    return { user: nameMatches[0], error: null };
+  }
+
+  if (nameMatches.length > 1) {
+    return {
+      user: null,
+      error: `Ambiguous user "${cleaned}". Multiple team members share this name. Use their email address instead.`,
+    };
+  }
+
+  return {
+    user: null,
+    error: `User "${cleaned}" was not found or is inactive.`,
+  };
+}
+
+/**
+ * Validate and parse a raw CSV data row
+ */
+export function validateCsvRow(rowObject, rowNumber, users = [], currentUser = null, departments = []) {
+  const errors = [];
+  const warnings = [];
+
+  // Filter only active, selectable directory users
+  const activeUsers = (users || []).filter(
+    (u) =>
+      u.is_active &&
+      !u.exclude_from_directory &&
+      !u.is_system_account &&
+      u.role !== 'it_support_admin' &&
+      u.role !== 'it_support'
+  );
+
+  // 1. Task Title (Required)
+  const rawTitle = rowObject.title || '';
+  const title = String(rawTitle).trim();
+  if (!title) {
+    errors.push('Task title is required.');
+  }
+
+  // 2. Description (Optional)
+  const description = String(rowObject.description || '').trim();
+
+  // 3. Assignees (Required, Pipe-separated)
+  const rawAssignees = String(rowObject.assignee || '').trim();
+  const resolvedAssignees = [];
+  const assignedUserIds = new Set();
+
+  if (!rawAssignees) {
+    errors.push('Assignee is required.');
+  } else {
+    const tokens = rawAssignees
+      .split('|')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (tokens.length === 0) {
+      errors.push('Assignee is required.');
+    } else {
+      for (const token of tokens) {
+        const { user, error } = resolveUserToken(token, activeUsers);
+        if (error) {
+          errors.push(error);
+        } else if (user) {
+          if (assignedUserIds.has(user.id)) {
+            warnings.push(`Duplicate assignee "${user.full_name}" in row was normalized.`);
+          } else {
+            // Check assignment RBAC permission
+            const hasPermission = checkUserAssignmentPermission(user, currentUser, false);
+            if (!hasPermission) {
+              errors.push(
+                `You don't have permission to assign tasks to "${user.full_name || user.email}" based on your role.`
+              );
+            } else {
+              assignedUserIds.add(user.id);
+              resolvedAssignees.push(user);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Assistant Users (Optional, Pipe-separated)
+  const rawAssistants = String(rowObject.assistants || '').trim();
+  const resolvedAssistants = [];
+  const assistantUserIds = new Set();
+
+  if (rawAssistants) {
+    const tokens = rawAssistants
+      .split('|')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    for (const token of tokens) {
+      const { user, error } = resolveUserToken(token, activeUsers);
+      if (error) {
+        // Unknown optional assistant is treated as blocking error so wrong workflows aren't silently created
+        errors.push(`Assistant error: ${error}`);
+      } else if (user) {
+        if (assignedUserIds.has(user.id)) {
+          errors.push(`User "${user.full_name}" cannot be both an Assignee and an Assistant on the same task.`);
+        } else if (assistantUserIds.has(user.id)) {
+          warnings.push(`Duplicate assistant "${user.full_name}" was normalized.`);
+        } else {
+          // Check assistant RBAC permission
+          const hasPermission = checkUserAssignmentPermission(user, currentUser, true);
+          if (!hasPermission) {
+            errors.push(
+              `You don't have permission to assign "${user.full_name || user.email}" as an Assistant.`
+            );
+          } else {
+            assistantUserIds.add(user.id);
+            resolvedAssistants.push(user);
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Priority (Optional, defaults to 'medium')
+  const rawPriority = String(rowObject.priority || '').trim();
+  let priority = 'medium';
+  if (rawPriority) {
+    const lowerP = rawPriority.toLowerCase();
+    if (['urgent', 'high', 'medium', 'low'].includes(lowerP)) {
+      priority = lowerP;
+    } else {
+      errors.push(`Invalid Priority "${rawPriority}". Use Urgent, High, Medium, or Low.`);
+    }
+  }
+
+  // 6. Status (Optional, defaults to 'pending')
+  const rawStatus = String(rowObject.status || '').trim();
+  let status = 'pending';
+  if (rawStatus) {
+    const lowerS = rawStatus.toLowerCase().replace(/[\s-]+/g, '_');
+    if (lowerS === 'pending') {
+      status = 'pending';
+    } else if (lowerS === 'in_progress' || lowerS === 'inprogress') {
+      status = 'in_progress';
+    } else if (lowerS === 'completed') {
+      errors.push('Cannot import tasks with Completed status. Tasks must be created as Pending or In Progress.');
+    } else {
+      errors.push(`Invalid Status "${rawStatus}". Use Pending or In Progress.`);
+    }
+  }
+
+  // 7. Start Date (Required, YYYY-MM-DD)
+  const rawStartDate = String(rowObject.startDate || '').trim();
+  let startDate = '';
+  if (!rawStartDate) {
+    errors.push('Start Date is required.');
+  } else {
+    startDate = parseStrictDateString(rawStartDate);
+    if (!startDate) {
+      errors.push(`Invalid Start Date "${rawStartDate}". Use YYYY-MM-DD format (e.g. 2026-09-05).`);
+    }
+  }
+
+  // 8. Due Date (Optional, YYYY-MM-DD)
+  const rawDueDate = String(rowObject.dueDate || '').trim();
+  let dueDate = null;
+  if (rawDueDate) {
+    dueDate = parseStrictDateString(rawDueDate);
+    if (!dueDate) {
+      errors.push(`Invalid Due Date "${rawDueDate}". Use YYYY-MM-DD format (e.g. 2026-09-15).`);
+    } else if (startDate && new Date(dueDate) < new Date(startDate)) {
+      errors.push(`Due Date (${dueDate}) cannot be earlier than Start Date (${startDate}).`);
+    }
+  }
+
+  // 9. Attachments (Optional, Pipe-separated HTTPS URLs)
+  const rawAttachments = String(rowObject.attachments || '').trim();
+  const parsedAttachments = [];
+  if (rawAttachments) {
+    const tokens = rawAttachments
+      .split('|')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    for (const token of tokens) {
+      if (/^https:\/\/[^\s]+$/i.test(token)) {
+        const info = detectUrlTypeAndExt(token);
+        parsedAttachments.push({
+          id: `att-csv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          name: info.name,
+          url: token,
+          size: 0,
+          type: info.type,
+          ext: info.ext,
+          is_external: true,
+        });
+      } else {
+        warnings.push(`Non-HTTPS or invalid link "${token}" was ignored.`);
+      }
+    }
+  }
+
+  // 10. Department Resolution (Derived from primary assignee or current user)
+  const primaryAssignee = resolvedAssignees[0];
+  let resolvedDepartmentId = null;
+  if (primaryAssignee && primaryAssignee.department_id) {
+    resolvedDepartmentId = primaryAssignee.department_id;
+  } else if (currentUser?.department_id) {
+    resolvedDepartmentId = currentUser.department_id;
+  }
+
+  const isValid = errors.length === 0;
+
+  return {
+    rowNumber,
+    isValid,
+    hasWarnings: warnings.length > 0,
+    errors,
+    warnings,
+    raw: rowObject,
+    taskData: {
+      title,
+      description,
+      department_id: resolvedDepartmentId,
+      assigned_to: Array.from(assignedUserIds),
+      assisted_by: Array.from(assistantUserIds),
+      attachments: parsedAttachments,
+      start_date: startDate,
+      due_date: dueDate,
+      priority,
+      status,
+    },
+    resolvedAssignees,
+    resolvedAssistants,
+  };
+}
+
+/**
+ * Parse an uploaded CSV File and validate all rows
+ */
+export function parseAndValidateCsvFile(file, users = [], currentUser = null, departments = []) {
+  return new Promise((resolve) => {
+    if (!file) {
+      return resolve({
+        fileError: 'No file provided.',
+        rows: [],
+        totalRows: 0,
+        readyCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      });
+    }
+
+    if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv') {
+      return resolve({
+        fileError: 'Invalid file format. Please upload a .csv file.',
+        rows: [],
+        totalRows: 0,
+        readyCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      });
+    }
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: 'greedy',
+      transformHeader: (header) => {
+        const normalized = normalizeHeaderKey(header);
+        return HEADER_KEY_MAP[normalized] || header.trim();
+      },
+      complete: (results) => {
+        const { data, meta, errors: parseErrors } = results;
+
+        if (parseErrors && parseErrors.length > 0) {
+          const firstError = parseErrors[0];
+          return resolve({
+            fileError: `CSV parse error at row ${firstError.row || 1}: ${firstError.message}`,
+            rows: [],
+            totalRows: 0,
+            readyCount: 0,
+            errorCount: 0,
+            warningCount: 0,
+          });
+        }
+
+        const headers = (meta.fields || []).map((h) => normalizeHeaderKey(h));
+
+        // Check required columns: tasktitle, assignee, startdate
+        const hasTitle = headers.some((h) => ['tasktitle', 'title'].includes(h));
+        const hasAssignee = headers.some((h) => ['assignee', 'assignees', 'assignedto', 'assignedmembers'].includes(h));
+        const hasStartDate = headers.some((h) => ['startdate', 'start'].includes(h));
+
+        const missingRequired = [];
+        if (!hasTitle) missingRequired.push('Task title*');
+        if (!hasAssignee) missingRequired.push('Assignee*');
+        if (!hasStartDate) missingRequired.push('Start Date*');
+
+        if (missingRequired.length > 0) {
+          return resolve({
+            fileError: `Required column(s) missing: ${missingRequired.join(', ')}`,
+            rows: [],
+            totalRows: 0,
+            readyCount: 0,
+            errorCount: 0,
+            warningCount: 0,
+          });
+        }
+
+        if (!data || data.length === 0) {
+          return resolve({
+            fileError: 'The uploaded CSV file contains no data rows.',
+            rows: [],
+            totalRows: 0,
+            readyCount: 0,
+            errorCount: 0,
+            warningCount: 0,
+          });
+        }
+
+        const rows = data.map((rawRow, idx) => {
+          const rowNumber = idx + 2; // Row 1 is header
+          return validateCsvRow(rawRow, rowNumber, users, currentUser, departments);
+        });
+
+        const readyCount = rows.filter((r) => r.isValid).length;
+        const errorCount = rows.filter((r) => !r.isValid).length;
+        const warningCount = rows.filter((r) => r.hasWarnings).length;
+
+        resolve({
+          fileError: null,
+          rows,
+          totalRows: rows.length,
+          readyCount,
+          errorCount,
+          warningCount,
+        });
+      },
+      error: (err) => {
+        resolve({
+          fileError: `Failed to read CSV file: ${err.message || 'Unknown error'}`,
+          rows: [],
+          totalRows: 0,
+          readyCount: 0,
+          errorCount: 0,
+          warningCount: 0,
+        });
+      },
+    });
+  });
+}

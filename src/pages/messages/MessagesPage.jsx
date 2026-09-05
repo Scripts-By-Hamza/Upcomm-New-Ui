@@ -1,20 +1,15 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppData } from '../../contexts/AppDataContext';
-import {
-  canViewConversation,
-} from '../../utils/messages/messagePermissions';
+import { canViewConversation } from '../../utils/messages/messagePermissions';
 import { ConversationList } from '../../components/messages/ConversationList';
 import { ConversationHeader } from '../../components/messages/ConversationHeader';
 import { MessageThread } from '../../components/messages/MessageThread';
 import { MessageComposer } from '../../components/messages/MessageComposer';
 import { ConversationDetailsDrawer } from '../../components/messages/ConversationDetailsDrawer';
 import { NewMessageDialog } from '../../components/messages/NewMessageDialog';
-import {
-  MessageSquare,
-  Plus,
-} from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
 
 export function MessagesPage() {
   const { currentUser, users = [] } = useAuth();
@@ -22,6 +17,7 @@ export function MessagesPage() {
     conversations = [],
     conversationParticipants = [],
     messages = [],
+    pinnedMessages = [],
     sendMessage,
     getOrCreateDirectConversation,
     markConversationAsRead,
@@ -34,6 +30,12 @@ export function MessagesPage() {
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+
+  // In-Conversation Word Search States
+  const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   // Active Conversation ID from URL or local state
   const urlConvId = searchParams.get('conversationId');
@@ -125,16 +127,26 @@ export function MessagesPage() {
     setReplyingTo(null);
   };
 
-  const handleSendMessage = async ({ body, replyToId }) => {
-    if (!activeConversationId || !body.trim()) return;
+  const handleSendMessage = async ({ body = '', replyToId = null, attachments = [] }) => {
+    const hasBody = typeof body === 'string' && body.trim().length > 0;
+    const hasAtts = Array.isArray(attachments) && attachments.length > 0;
+    if (!activeConversationId || (!hasBody && !hasAtts)) return;
 
     await sendMessage({
       conversationId: activeConversationId,
       body,
       replyToId,
+      attachments,
     });
     setReplyingTo(null);
   };
+
+  const handleJumpToMessage = useCallback((messageId) => {
+    setHighlightedMessageId(messageId);
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 2200);
+  }, []);
 
   // Active Conversation Object
   const activeConversation = userConversations.find(
@@ -150,6 +162,13 @@ export function MessagesPage() {
       .filter(Boolean);
   }, [activeConversationId, conversationParticipants, users]);
 
+  // Reset in-conversation search when active conversation changes
+  useEffect(() => {
+    setChatSearchQuery('');
+    setIsChatSearchOpen(false);
+    setCurrentMatchIndex(0);
+  }, [activeConversationId]);
+
   // Active Messages
   const activeMessages = useMemo(() => {
     if (!activeConversationId) return [];
@@ -158,31 +177,52 @@ export function MessagesPage() {
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeConversationId, messages]);
 
+  // Active Conversation Pins
+  const activePins = useMemo(() => {
+    if (!activeConversationId) return [];
+    return (pinnedMessages || []).filter(
+      (p) => String(p.conversation_id) === String(activeConversationId)
+    );
+  }, [activeConversationId, pinnedMessages]);
+
+  // Matching Message IDs for In-Conversation Word Search
+  const matchingMessageIds = useMemo(() => {
+    if (!chatSearchQuery.trim() || !activeMessages.length) return [];
+    const q = chatSearchQuery.toLowerCase().trim();
+    return activeMessages
+      .filter((m) => (m.body || '').toLowerCase().includes(q))
+      .map((m) => m.id);
+  }, [chatSearchQuery, activeMessages]);
+
+  // Jump to first matching message on search query change
+  useEffect(() => {
+    if (matchingMessageIds.length > 0) {
+      setCurrentMatchIndex(0);
+      handleJumpToMessage(matchingMessageIds[0]);
+    } else {
+      setCurrentMatchIndex(0);
+    }
+  }, [chatSearchQuery, matchingMessageIds.length, handleJumpToMessage]);
+
+  const handleNextMatch = useCallback(() => {
+    if (matchingMessageIds.length === 0) return;
+    const nextIdx = (currentMatchIndex + 1) % matchingMessageIds.length;
+    setCurrentMatchIndex(nextIdx);
+    handleJumpToMessage(matchingMessageIds[nextIdx]);
+  }, [currentMatchIndex, matchingMessageIds, handleJumpToMessage]);
+
+  const handlePrevMatch = useCallback(() => {
+    if (matchingMessageIds.length === 0) return;
+    const prevIdx =
+      (currentMatchIndex - 1 + matchingMessageIds.length) % matchingMessageIds.length;
+    setCurrentMatchIndex(prevIdx);
+    handleJumpToMessage(matchingMessageIds[prevIdx]);
+  }, [currentMatchIndex, matchingMessageIds, handleJumpToMessage]);
+
   return (
-    <div className="space-y-4 max-w-full font-['Inter']">
-      {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
-        <div>
-          <h1 className="text-[22px] font-bold text-[#18181B] dark:text-[#F4F4F5] tracking-tight leading-tight">
-            Messages
-          </h1>
-          <p className="text-[13px] text-[#71717A] dark:text-[#8E949E] mt-0.5">
-            Private conversations with your UPCOMM team.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsNewMessageOpen(true)}
-          className="inline-flex items-center justify-center gap-1.5 px-4 h-[38px] bg-[#059669] hover:bg-[#047857] text-white rounded-[8px] text-[13px] font-semibold transition-colors cursor-pointer shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Message</span>
-        </button>
-      </div>
-
-      {/* 2. Main Messaging Workspace Surface */}
-      <div className="h-[calc(100vh-215px)] min-h-[560px] bg-white dark:bg-[#17191C] border border-[#E5E7EB] dark:border-[#2A2E34] rounded-[10px] overflow-hidden flex shadow-none">
+    <div className="w-full h-[calc(100dvh-5.5rem)] sm:h-[calc(100dvh-5.8rem)] flex flex-col min-h-0 overflow-hidden font-['Inter'] pb-2">
+      {/* Main Messaging Workspace Surface (Full Remaining Viewport, No Outer Page Header) */}
+      <div className="flex-1 h-full min-h-0 bg-white dark:bg-[#17191C] border border-[#E5E7EB] dark:border-[#2A2E34] rounded-[10px] overflow-hidden flex shadow-none">
         {/* Left Column: Conversation List (hidden on mobile if a chat is active) */}
         <div
           className={`w-full md:w-80 lg:w-[320px] flex-shrink-0 flex flex-col border-r border-[#E5E7EB] dark:border-[#2A2E34] ${
@@ -199,18 +239,30 @@ export function MessagesPage() {
 
         {/* Right Column: Active Conversation Workspace */}
         <div
-          className={`flex-1 flex h-full min-w-0 bg-white dark:bg-[#17191C] ${
+          className={`flex-1 flex h-full min-w-0 bg-[#F7F8FA] dark:bg-[#17191C] ${
             !activeConversationId ? 'hidden md:flex' : 'flex'
           }`}
         >
           {activeConversation ? (
             <div className="flex-1 flex flex-col h-full min-w-0">
+              {/* Sticky Top Header with Pinned Messages Bar & Search Bar */}
               <ConversationHeader
                 conversation={activeConversation}
                 participants={activeParticipants}
+                pinnedMessages={activePins}
+                messages={activeMessages}
                 onBack={() => setActiveConversationId(null)}
                 isDetailsOpen={isDetailsOpen}
                 onToggleDetails={() => setIsDetailsOpen(!isDetailsOpen)}
+                onJumpToMessage={handleJumpToMessage}
+                isSearchOpen={isChatSearchOpen}
+                setIsSearchOpen={setIsChatSearchOpen}
+                searchQuery={chatSearchQuery}
+                setSearchQuery={setChatSearchQuery}
+                matchingMessageIds={matchingMessageIds}
+                currentMatchIndex={currentMatchIndex}
+                onNextMatch={handleNextMatch}
+                onPrevMatch={handlePrevMatch}
               />
 
               <div className="flex-1 flex overflow-hidden min-h-0">
@@ -221,6 +273,9 @@ export function MessagesPage() {
                     messages={activeMessages}
                     participants={activeParticipants}
                     onReply={(msg) => setReplyingTo(msg)}
+                    highlightedMessageId={highlightedMessageId}
+                    onJumpToMessage={handleJumpToMessage}
+                    searchQuery={chatSearchQuery}
                   />
 
                   <MessageComposer

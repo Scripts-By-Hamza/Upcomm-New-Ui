@@ -3,7 +3,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileDrawer } from './MobileDrawer';
 import { ChangePasswordAlert } from '../auth/ChangePasswordAlert';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { CommandPalette } from '../command/CommandPalette';
 import { TaskDetailDrawer } from '../tasks/detail/TaskDetailDrawer';
 import { EditTaskDrawer } from '../tasks/edit/EditTaskDrawer';
@@ -13,6 +13,8 @@ import { useAppData } from '../../contexts/AppDataContext';
 
 export function AppLayout() {
   const { createPersonalTask } = useAppData();
+  const location = useLocation();
+  const isMessagesPage = location.pathname === '/messages';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -58,7 +60,11 @@ export function AppLayout() {
       />
 
       {/* Right Pane (Header + Content) */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen bg-[#F7F8FA] dark:bg-[#111315] overflow-y-auto">
+      <div
+        className={`flex-1 flex flex-col min-w-0 h-screen bg-[#F7F8FA] dark:bg-[#111315] ${
+          isMessagesPage ? 'overflow-hidden' : 'overflow-y-auto'
+        }`}
+      >
         {/* Sticky Top Header */}
         <Header
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
@@ -67,9 +73,15 @@ export function AppLayout() {
         />
 
         {/* Page Content Body */}
-        <main className="flex-1 px-4 sm:px-7 py-5 sm:py-6 w-full max-w-full overflow-x-hidden animate-fade-in flex flex-col">
-          <div className="space-y-6 flex-1">
-            <ChangePasswordAlert />
+        <main
+          className={`flex-1 w-full max-w-full animate-fade-in flex flex-col ${
+            isMessagesPage
+              ? 'px-4 sm:px-6 pt-3 pb-3 overflow-hidden min-h-0'
+              : 'px-4 sm:px-7 py-5 sm:py-6 overflow-x-hidden'
+          }`}
+        >
+          <div className={`flex-1 ${isMessagesPage ? 'flex flex-col min-h-0' : 'space-y-6'}`}>
+            {!isMessagesPage && <ChangePasswordAlert />}
             <Outlet />
           </div>
         </main>

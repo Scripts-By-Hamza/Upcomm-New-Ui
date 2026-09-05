@@ -327,16 +327,44 @@ export const INITIAL_MESSAGES = [
   },
 ];
 
-export const INITIAL_MESSAGE_REPORTS = [
+export const INITIAL_MESSAGE_REACTIONS = [
   {
-    id: 'mr-1',
-    message_id: 'msg-bilal-1',
-    conversation_id: 'conv-bilal',
-    reported_by: 'usr-admin-1',
-    reported_user_id: 'usr-bilal-1',
-    reason: 'Inappropriate language or harassment',
-    details: 'Testing message reporting workflow',
-    status: 'open',
-    created_at: hoursAgo(1),
+    id: 'react-1',
+    message_id: 'msg-ahmed-2',
+    user_id: 'usr-ahmed-1',
+    emoji: '👍',
+    created_at: minAgo(54),
+  },
+  {
+    id: 'react-2',
+    message_id: 'msg-ahmed-2',
+    user_id: 'usr-sarah-1',
+    emoji: '❤️',
+    created_at: minAgo(52),
+  },
+  {
+    id: 'react-3',
+    message_id: 'msg-qa-2',
+    user_id: 'usr-admin-1',
+    emoji: '👍',
+    created_at: minAgo(10),
   },
 ];
+
+export const INITIAL_PINNED_MESSAGES = [
+  {
+    id: 'pin-1',
+    conversation_id: 'conv-ahmed',
+    message_id: 'msg-ahmed-1',
+    pinned_by: 'usr-admin-1',
+    pinned_at: minAgo(55),
+  },
+  {
+    id: 'pin-2',
+    conversation_id: 'conv-homepage-qa',
+    message_id: 'msg-qa-1',
+    pinned_by: 'usr-sarah-1',
+    pinned_at: minAgo(25),
+  },
+];
+

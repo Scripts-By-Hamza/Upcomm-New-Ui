@@ -698,41 +698,6 @@ export function UserPermissionDrawer({
                 />
               </div>
 
-              <div className="py-2.5 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
-                    Report Inappropriate Messages
-                  </div>
-                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
-                    Allow reporting received messages to administrators for moderation.
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={effectivePermissions['messages.report']}
-                  disabled={isAdmin}
-                  onChange={() => handleToggleBoolean('messages.report')}
-                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div className="py-2.5 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[12.5px] font-semibold text-[#18181B] dark:text-[#F4F4F5]">
-                    Manage Message Reports & Moderation
-                  </div>
-                  <div className="text-[11.5px] text-[#71717A] dark:text-[#A1A1AA]">
-                    Access the moderation inbox to review and resolve reported messages.
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={effectivePermissions['message_reports.manage']}
-                  disabled={isAdmin}
-                  onChange={() => handleToggleBoolean('message_reports.manage')}
-                  className="w-4 h-4 text-[#059669] rounded cursor-pointer disabled:cursor-not-allowed"
-                />
-              </div>
             </div>
           </div>
 

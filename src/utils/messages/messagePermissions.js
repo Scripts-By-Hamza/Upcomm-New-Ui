@@ -45,29 +45,6 @@ export function canMessageCrossDepartment(user) {
 }
 
 /**
- * Checks whether the user can submit message reports.
- */
-export function canReportMessage(user, message) {
-  if (!user || !message) return false;
-  // User cannot report their own message
-  if (String(message.sender_id) === String(user.id)) return false;
-  const perms = getEffectivePermissions(user);
-  return perms['messages.report'] !== false;
-}
-
-/**
- * Checks whether the user has access to review and manage message reports.
- * Strictly Admins or users with explicit message_reports.manage permission.
- */
-export function canManageMessageReports(user) {
-  if (!user) return false;
-  const role = (user.role || 'team_member').toLowerCase();
-  if (role === 'admin' || role === 'it_support_admin') return true;
-  const perms = getEffectivePermissions(user);
-  return Boolean(perms['message_reports.manage']);
-}
-
-/**
  * Checks whether a user is an authorized participant of a conversation.
  * CRITICAL PRIVACY RULE: Admins and HODs are NOT automatically participants in other people's private chats.
  */

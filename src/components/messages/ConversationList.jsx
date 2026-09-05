@@ -255,7 +255,13 @@ export function ConversationList({
             if (lastMsg) {
               const isMe = String(lastMsg.sender_id) === String(currentUser?.id);
               const senderObj = users.find((u) => String(u.id) === String(lastMsg.sender_id));
-              if (isMe) {
+
+              if (lastMsg.deleted_at) {
+                snippet = isMe ? 'You deleted this message' : 'This message was deleted';
+              } else if (lastMsg.attachments && (!lastMsg.body || !lastMsg.body.trim()) && lastMsg.attachments.length > 0) {
+                const attType = lastMsg.attachments[0]?.type || 'attachment';
+                snippet = isMe ? `You: [${attType}]` : `${isGroup && senderObj ? (senderObj.full_name?.split(' ')[0] || 'User') + ': ' : ''}[${attType}]`;
+              } else if (isMe) {
                 snippet = `You: ${lastMsg.body}`;
               } else if (isGroup && senderObj) {
                 const firstName = senderObj.full_name?.split(' ')[0] || 'User';
@@ -323,9 +329,6 @@ export function ConversationList({
                       size="md"
                       className="w-10 h-10"
                     />
-                    {otherUser?.is_active && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#17191C]" />
-                    )}
                   </div>
                 )}
 

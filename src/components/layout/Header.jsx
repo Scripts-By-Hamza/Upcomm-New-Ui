@@ -140,9 +140,6 @@ export function Header({
     if (path === '/messages') {
       return [{ label: 'Communication', to: '/messages' }, { label: 'Messages' }];
     }
-    if (path === '/management/message-reports' || path === '/message-reports') {
-      return [{ label: 'Management', to: '/dashboard' }, { label: 'Message Reports' }];
-    }
     if (path === '/profile') {
       return [{ label: 'Account', to: '/dashboard' }, { label: 'Profile' }];
     }

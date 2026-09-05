@@ -74,13 +74,11 @@ export const ROLE_DEFAULTS = {
     // Settings
     'settings.manage': true,
 
-    // Messaging & Moderation
+    // Messaging
     'messages.send_direct': true,
     'messages.create_group': true,
     'messages.send_broadcast': true,
     'messages.cross_department': true,
-    'messages.report': true,
-    'message_reports.manage': true,
   },
 
   it_support_admin: {
@@ -105,8 +103,6 @@ export const ROLE_DEFAULTS = {
     'messages.create_group': true,
     'messages.send_broadcast': true,
     'messages.cross_department': true,
-    'messages.report': true,
-    'message_reports.manage': true,
   },
 
   hod: {
@@ -131,8 +127,6 @@ export const ROLE_DEFAULTS = {
     'messages.create_group': true,
     'messages.send_broadcast': true,
     'messages.cross_department': true,
-    'messages.report': true,
-    'message_reports.manage': false,
   },
 
   team_member: {
@@ -157,8 +151,6 @@ export const ROLE_DEFAULTS = {
     'messages.create_group': true,
     'messages.send_broadcast': true,
     'messages.cross_department': true,
-    'messages.report': true,
-    'message_reports.manage': false,
   },
 };
 

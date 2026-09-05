@@ -32,7 +32,7 @@ export function ConversationDetailsDrawer({
 
   // Extract shared files from messages (mock or real attachments)
   const sharedFiles = messages
-    .filter((m) => m.attachments && Array.isArray(m.attachments) && m.attachments.length > 0)
+    .filter((m) => !m.deleted_at && m.attachments && Array.isArray(m.attachments) && m.attachments.length > 0)
     .flatMap((m) => m.attachments);
 
   const filteredParticipants = participants.filter((p) => {
@@ -165,23 +165,24 @@ export function ConversationDetailsDrawer({
           ) : (
             <div className="space-y-1.5">
               {sharedFiles.map((file, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2 rounded-[8px] bg-[#F9FAFB] dark:bg-[#1D2024] border border-[#E5E7EB] dark:border-[#2A2E34] text-[12px]"
+                <a
+                  key={file.id || idx}
+                  href={file.url}
+                  download={file.name || 'file'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-2 rounded-[8px] bg-[#F9FAFB] dark:bg-[#1D2024] hover:bg-[#EAEAEA] dark:hover:bg-[#22262B] border border-[#E5E7EB] dark:border-[#2A2E34] text-[12px] transition-colors group cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <FileText className="w-4 h-4 text-[#059669] shrink-0" />
                     <span className="truncate font-medium text-[#18181B] dark:text-[#F4F4F5]">
                       {file.name || 'Document.pdf'}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="p-1 text-[#71717A] hover:text-[#18181B] dark:hover:text-[#F4F4F5] rounded transition-colors"
-                  >
+                  <div className="p-1 text-[#71717A] group-hover:text-[#18181B] dark:group-hover:text-[#F4F4F5] rounded transition-colors shrink-0">
                     <Download className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  </div>
+                </a>
               ))}
             </div>
           )}

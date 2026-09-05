@@ -13,7 +13,7 @@ import {
   canUserViewTask,
 } from '../../utils/rbac/permissionManager';
 import { canViewMonthlyTarget } from '../../utils/monthlyTargets/monthlyTargetPermissions';
-import { canManageMessageReports, canStartDirectMessage } from '../../utils/messages/messagePermissions';
+import { canStartDirectMessage } from '../../utils/messages/messagePermissions';
 import { getTotalUnreadMessagesCount } from '../../utils/messages/messageSelectors';
 import { UnreadBadge } from '../common/UnreadBadge';
 import { getViewUnreadCounts } from '../../utils/comments/unreadCommentSelectors';
@@ -40,7 +40,6 @@ import {
   Shield,
   Target,
   MessageSquare,
-  ShieldAlert,
 } from 'lucide-react';
 
 export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse, onNavItemClick, onOpenCommandPalette }) {
@@ -56,7 +55,6 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
     conversations = [],
     conversationParticipants = [],
     messages = [],
-    messageReports = [],
   } = useAppData();
   const navigate = useNavigate();
   const location = useLocation();
@@ -143,13 +141,6 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
     if (!userId) return 0;
     return getTotalUnreadMessagesCount(userId, conversations, conversationParticipants, messages);
   }, [userId, conversations, conversationParticipants, messages]);
-
-  // Scoped Message Reports Count (Admins / Moderators)
-  const canSeeMessageReports = canManageMessageReports(currentUser);
-  const openMessageReportsCount = useMemo(() => {
-    if (!canSeeMessageReports) return 0;
-    return (messageReports || []).filter((r) => r.status === 'open').length;
-  }, [messageReports, canSeeMessageReports]);
 
   // Click outside to close user menu
   useEffect(() => {
@@ -575,20 +566,6 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
                 location.pathname === '/delete-requests'
               }
             />
-
-            {canSeeMessageReports && (
-              <NavItem
-                to="/management/message-reports"
-                label="Message Reports"
-                icon={ShieldAlert}
-                badge={openMessageReportsCount > 0 ? openMessageReportsCount : null}
-                badgeColor="bg-[#2563EB] text-white font-bold"
-                isActive={
-                  location.pathname === '/management/message-reports' ||
-                  location.pathname === '/message-reports'
-                }
-              />
-            )}
 
             {canSeeReports && (
               <NavItem to="/reports" label="Reports" icon={BarChart3} />

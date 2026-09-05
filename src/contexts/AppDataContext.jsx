@@ -10,7 +10,8 @@ import {
   INITIAL_CONVERSATIONS,
   INITIAL_CONVERSATION_PARTICIPANTS,
   INITIAL_MESSAGES,
-  INITIAL_MESSAGE_REPORTS,
+  INITIAL_MESSAGE_REACTIONS,
+  INITIAL_PINNED_MESSAGES,
 } from '../data/dummyMessages';
 import { calculateMonthEndDate } from '../utils/monthlyTargets/monthlyTargetUtils';
 import { useAuth } from './AuthContext';
@@ -203,18 +204,33 @@ export function AppDataProvider({ children }) {
     }
   });
 
-  const [messageReports, setMessageReports] = useState(() => {
+  const [messageReactions, setMessageReactions] = useState(() => {
     try {
-      const saved = localStorage.getItem('upcomm_message_reports');
+      const saved = localStorage.getItem('upcomm_message_reactions');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed;
         }
       }
-      return INITIAL_MESSAGE_REPORTS;
+      return INITIAL_MESSAGE_REACTIONS || [];
     } catch (e) {
-      return INITIAL_MESSAGE_REPORTS;
+      return INITIAL_MESSAGE_REACTIONS || [];
+    }
+  });
+
+  const [pinnedMessages, setPinnedMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('upcomm_pinned_messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return INITIAL_PINNED_MESSAGES || [];
+    } catch (e) {
+      return INITIAL_PINNED_MESSAGES || [];
     }
   });
 
@@ -238,9 +254,15 @@ export function AppDataProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem('upcomm_message_reports', JSON.stringify(messageReports));
+      localStorage.setItem('upcomm_message_reactions', JSON.stringify(messageReactions));
     } catch (e) {}
-  }, [messageReports]);
+  }, [messageReactions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('upcomm_pinned_messages', JSON.stringify(pinnedMessages));
+    } catch (e) {}
+  }, [pinnedMessages]);
 
   // Synchronized refs for realtime listeners & sound evaluations
   const tasksRef = useRef(tasks);
@@ -309,7 +331,6 @@ export function AppDataProvider({ children }) {
         supabase.from('conversations').select('*').order('updated_at', { ascending: false }),
         supabase.from('conversation_participants').select('*'),
         supabase.from('messages').select('*').order('created_at', { ascending: true }),
-        supabase.from('message_reports').select('*').order('created_at', { ascending: false }),
       ];
 
       if (currentUser?.id) {
@@ -344,7 +365,6 @@ export function AppDataProvider({ children }) {
         conversationsRes,
         participantsRes,
         messagesRes,
-        msgReportsRes,
         pTasksRes,
         readStateRes,
       ] = results;
@@ -380,9 +400,6 @@ export function AppDataProvider({ children }) {
       }
       if (messagesRes && !messagesRes.error && messagesRes.data) {
         setMessages(messagesRes.data);
-      }
-      if (msgReportsRes && !msgReportsRes.error && msgReportsRes.data) {
-        setMessageReports(msgReportsRes.data);
       }
       if (pTasksRes && !pTasksRes.error && pTasksRes.data) {
         setPersonalTasks(pTasksRes.data);
@@ -711,18 +728,72 @@ export function AppDataProvider({ children }) {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'message_reports' },
+        { event: '*', schema: 'public', table: 'message_reactions' },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            const newRep = payload.new;
-            setMessageReports((prev) => {
-              if (prev.some((r) => r.id === newRep.id)) return prev;
-              return [newRep, ...prev];
+            const row = payload.new;
+            setMessageReactions((prev) => {
+              const existingIdx = prev.findIndex(
+                (r) => r.id === row.id || (r.message_id === row.message_id && r.user_id === row.user_id)
+              );
+              if (existingIdx !== -1) {
+                return prev.map((r, i) => (i === existingIdx ? { ...r, ...row } : r));
+              }
+              return [...prev, row];
             });
           } else if (payload.eventType === 'UPDATE') {
-            const updatedRep = payload.new;
-            setMessageReports((prev) =>
-              prev.map((r) => (r.id === updatedRep.id ? { ...r, ...updatedRep } : r))
+            const row = payload.new;
+            setMessageReactions((prev) =>
+              prev.map((r) => (r.id === row.id ? { ...r, ...row } : r))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            const deletedMsgId = payload.old.message_id;
+            const deletedUserId = payload.old.user_id;
+            setMessageReactions((prev) =>
+              prev.filter(
+                (r) =>
+                  !(
+                    r.id === deletedId ||
+                    (deletedMsgId && deletedUserId && r.message_id === deletedMsgId && r.user_id === deletedUserId)
+                  )
+              )
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversation_pinned_messages' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const row = payload.new;
+            setPinnedMessages((prev) => {
+              const existingIdx = prev.findIndex(
+                (p) => p.id === row.id || (p.conversation_id === row.conversation_id && p.message_id === row.message_id)
+              );
+              if (existingIdx !== -1) {
+                return prev.map((p, i) => (i === existingIdx ? { ...p, ...row } : p));
+              }
+              return [...prev, row];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const row = payload.new;
+            setPinnedMessages((prev) =>
+              prev.map((p) => (p.id === row.id ? { ...p, ...row } : p))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            const deletedConvId = payload.old.conversation_id;
+            const deletedMsgId = payload.old.message_id;
+            setPinnedMessages((prev) =>
+              prev.filter(
+                (p) =>
+                  !(
+                    p.id === deletedId ||
+                    (deletedConvId && deletedMsgId && p.conversation_id === deletedConvId && p.message_id === deletedMsgId)
+                  )
+              )
             );
           }
         }
@@ -799,10 +870,12 @@ export function AppDataProvider({ children }) {
 
     const messagingPoll = setInterval(async () => {
       try {
-        const [convsRes, partsRes, msgsRes] = await Promise.all([
+        const [convsRes, partsRes, msgsRes, reactsRes, pinsRes] = await Promise.all([
           supabase.from('conversations').select('*').order('updated_at', { ascending: false }),
           supabase.from('conversation_participants').select('*'),
           supabase.from('messages').select('*').order('created_at', { ascending: true }),
+          supabase.from('message_reactions').select('*'),
+          supabase.from('conversation_pinned_messages').select('*'),
         ]);
 
         if (convsRes.data && !convsRes.error) {
@@ -828,6 +901,22 @@ export function AppDataProvider({ children }) {
             const merged = [...msgsRes.data, ...localOnly];
             // Sort chronologically
             return merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          });
+        }
+
+        if (reactsRes.data && !reactsRes.error) {
+          setMessageReactions((prev) => {
+            const serverIds = new Set(reactsRes.data.map((r) => r.id));
+            const localOnly = prev.filter((r) => !serverIds.has(r.id));
+            return [...reactsRes.data, ...localOnly];
+          });
+        }
+
+        if (pinsRes.data && !pinsRes.error) {
+          setPinnedMessages((prev) => {
+            const serverIds = new Set(pinsRes.data.map((p) => p.id));
+            const localOnly = prev.filter((p) => !serverIds.has(p.id));
+            return [...pinsRes.data, ...localOnly];
           });
         }
       } catch (err) {
@@ -2240,6 +2329,96 @@ export function AppDataProvider({ children }) {
     });
   };
 
+  // --- MESSAGE ATTACHMENT UPLOAD (IMAGE, VIDEO, PDF, DOC, AUDIO, ARCHIVE) ---
+  const uploadMessageAttachment = async (file) => {
+    if (!file) return null;
+
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const fileName = file.name;
+    const fileSize = file.size;
+    const storagePath = `conv-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+    // Categorize attachment
+    let category = 'doc';
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(fileExt)) {
+      category = 'image';
+    } else if (['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(fileExt)) {
+      category = 'video';
+    } else if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(fileExt)) {
+      category = 'audio';
+    } else if (['pdf'].includes(fileExt)) {
+      category = 'pdf';
+    } else if (['csv', 'xls', 'xlsx'].includes(fileExt)) {
+      category = 'csv';
+    } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) {
+      category = 'archive';
+    } else if (['doc', 'docx', 'txt', 'rtf'].includes(fileExt)) {
+      category = 'doc';
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Try 'message-attachments' bucket first, fallback to 'task-attachments' if needed
+        let bucketName = 'message-attachments';
+        let { data, error: uploadError } = await supabase.storage
+          .from(bucketName)
+          .upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: true,
+          });
+
+        if (uploadError && uploadError.message?.toLowerCase().includes('bucket not found')) {
+          bucketName = 'task-attachments';
+          const retry = await supabase.storage
+            .from(bucketName)
+            .upload(storagePath, file, {
+              cacheControl: '3600',
+              upsert: true,
+            });
+          data = retry.data;
+          uploadError = retry.error;
+        }
+
+        if (!uploadError) {
+          const { data: publicData } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(storagePath);
+
+          if (publicData?.publicUrl) {
+            return {
+              id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: fileName,
+              url: publicData.publicUrl,
+              size: fileSize,
+              type: category,
+              ext: fileExt.toUpperCase(),
+            };
+          }
+        } else {
+          console.warn('Supabase storage message-attachments error:', uploadError.message);
+        }
+      } catch (err) {
+        console.warn('Supabase storage message-attachments exception:', err);
+      }
+    }
+
+    // Fallback data URL for offline / local preview
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve({
+          id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: fileName,
+          url: reader.result,
+          size: fileSize,
+          type: category,
+          ext: fileExt.toUpperCase(),
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const submitReport = async (reportData) => {
     const newReport = {
       id: `rep-${Date.now()}`,
@@ -2992,8 +3171,14 @@ export function AppDataProvider({ children }) {
   );
 
   const sendMessage = useCallback(
-    async ({ conversationId, body, replyToId = null }) => {
-      if (!currentUser?.id || !conversationId || !body?.trim()) return null;
+    async ({ conversationId, body = '', replyToId = null, attachments = [] }) => {
+      const hasBody = typeof body === 'string' && body.trim().length > 0;
+      const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+
+      if (!currentUser?.id || !conversationId || (!hasBody && !hasAttachments)) {
+        return null;
+      }
+
       const currentUid = String(currentUser.id);
       const convId = String(conversationId);
       const nowIso = new Date().toISOString();
@@ -3005,10 +3190,11 @@ export function AppDataProvider({ children }) {
         id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         conversation_id: convId,
         sender_id: currentUid,
-        body: body.trim(),
+        body: (body || '').trim(),
         reply_to_message_id: replyToId || null,
         source_type: sourceType,
         broadcast_id: null,
+        attachments: Array.isArray(attachments) ? attachments : [],
         created_at: nowIso,
         updated_at: nowIso,
         deleted_at: null,
@@ -3047,7 +3233,14 @@ export function AppDataProvider({ children }) {
       if (isSupabaseConfigured && supabase) {
         try {
           const { error: mErr } = await supabase.from('messages').insert([newMsg]);
-          if (mErr) console.warn('Supabase send message notice:', mErr.message);
+          if (mErr) {
+            console.warn('Supabase send message notice:', mErr.message);
+            // If attachments column is missing in older schema, fallback insert without attachments field
+            if (mErr.message?.includes('attachments')) {
+              const { attachments: _att, ...msgWithoutAtt } = newMsg;
+              await supabase.from('messages').insert([msgWithoutAtt]);
+            }
+          }
           await supabase
             .from('conversations')
             .update({ updated_at: nowIso })
@@ -3123,95 +3316,197 @@ export function AppDataProvider({ children }) {
     [currentUser?.id]
   );
 
-  const reportMessage = useCallback(
-    async ({ messageId, conversationId, reportedUserId, reason, reporterNote = '' }) => {
-      if (!currentUser?.id || !messageId) return null;
+  const toggleMessageReaction = useCallback(
+    async ({ messageId, emoji }) => {
+      if (!currentUser?.id || !messageId || !emoji) return null;
       const currentUid = String(currentUser.id);
+      const msgId = String(messageId);
       const nowIso = new Date().toISOString();
 
-      const targetMsg = (messages || []).find((m) => String(m.id) === String(messageId));
-      const messageSnapshot = {
-        body: targetMsg?.body || '',
-        sender_id: targetMsg?.sender_id || reportedUserId,
-        created_at: targetMsg?.created_at || nowIso,
+      const existing = (messageReactions || []).find(
+        (r) => String(r.message_id) === msgId && String(r.user_id) === currentUid
+      );
+
+      if (existing) {
+        if (existing.emoji === emoji) {
+          // Toggle off: remove
+          setMessageReactions((prev) =>
+            prev.filter(
+              (r) => !(String(r.message_id) === msgId && String(r.user_id) === currentUid)
+            )
+          );
+
+          if (isSupabaseConfigured && supabase) {
+            try {
+              await supabase
+                .from('message_reactions')
+                .delete()
+                .match({ message_id: msgId, user_id: currentUid });
+            } catch (e) {
+              console.warn('Supabase reaction remove fallback:', e);
+            }
+          }
+          return null;
+        } else {
+          // Replace with new emoji
+          const updated = { ...existing, emoji, created_at: nowIso };
+          setMessageReactions((prev) =>
+            prev.map((r) =>
+              String(r.message_id) === msgId && String(r.user_id) === currentUid ? updated : r
+            )
+          );
+
+          if (isSupabaseConfigured && supabase) {
+            try {
+              await supabase
+                .from('message_reactions')
+                .update({ emoji, created_at: nowIso })
+                .match({ message_id: msgId, user_id: currentUid });
+            } catch (e) {
+              console.warn('Supabase reaction update fallback:', e);
+            }
+          }
+          return updated;
+        }
+      } else {
+        // Add new reaction
+        const newReaction = {
+          id: `react-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          message_id: msgId,
+          user_id: currentUid,
+          emoji,
+          created_at: nowIso,
+        };
+
+        setMessageReactions((prev) => [...prev, newReaction]);
+
+        if (isSupabaseConfigured && supabase) {
+          try {
+            await supabase.from('message_reactions').insert([newReaction]);
+          } catch (e) {
+            console.warn('Supabase reaction insert fallback:', e);
+          }
+        }
+        return newReaction;
+      }
+    },
+    [currentUser?.id, messageReactions]
+  );
+
+  const pinMessage = useCallback(
+    async ({ conversationId, messageId }) => {
+      if (!currentUser?.id || !conversationId || !messageId) return null;
+      const currentUid = String(currentUser.id);
+      const convId = String(conversationId);
+      const msgId = String(messageId);
+      const nowIso = new Date().toISOString();
+
+      const existing = (pinnedMessages || []).find(
+        (p) => String(p.conversation_id) === convId && String(p.message_id) === msgId
+      );
+      if (existing) return existing;
+
+      const newPin = {
+        id: `pin-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        conversation_id: convId,
+        message_id: msgId,
+        pinned_by: currentUid,
+        pinned_at: nowIso,
       };
 
-      const newReport = {
-        id: `mr-${Date.now()}`,
-        message_id: messageId,
-        conversation_id: conversationId,
-        reported_by_user_id: currentUid,
-        reported_user_id: reportedUserId,
-        message_snapshot: messageSnapshot,
-        message_sent_at: targetMsg?.created_at || nowIso,
-        reason: reason || 'Inappropriate language',
-        reporter_note: reporterNote?.trim() || '',
-        status: 'open',
-        reviewed_by: null,
-        reviewed_at: null,
-        admin_note: null,
-        created_at: nowIso,
-      };
-
-      setMessageReports((prev) => [newReport, ...prev]);
+      setPinnedMessages((prev) => [...prev, newPin]);
 
       if (isSupabaseConfigured && supabase) {
         try {
-          const { error: repErr } = await supabase.from('message_reports').insert([newReport]);
-          if (repErr) console.warn('Supabase report insert notice:', repErr.message);
+          await supabase.from('conversation_pinned_messages').insert([newPin]);
         } catch (e) {
-          console.warn('Supabase message report insert fallback:', e);
+          console.warn('Supabase pin insert fallback:', e);
         }
       }
-
-      return newReport;
+      return newPin;
     },
-    [currentUser?.id, messages]
+    [currentUser?.id, pinnedMessages]
   );
 
-  const updateReportStatus = useCallback(
-    async ({ reportId, status, adminNote = null }) => {
-      if (!currentUser?.id || !reportId) return null;
-      const currentUid = String(currentUser.id);
-      const nowIso = new Date().toISOString();
+  const unpinMessage = useCallback(
+    async ({ conversationId, messageId }) => {
+      if (!currentUser?.id || !conversationId || !messageId) return;
+      const convId = String(conversationId);
+      const msgId = String(messageId);
 
-      let updatedObj = null;
-      setMessageReports((prev) =>
-        prev.map((r) => {
-          if (String(r.id) === String(reportId)) {
-            updatedObj = {
-              ...r,
-              status,
-              admin_note: adminNote !== null ? adminNote : r.admin_note,
-              reviewed_by: currentUid,
-              reviewed_at: nowIso,
-            };
-            return updatedObj;
-          }
-          return r;
-        })
+      setPinnedMessages((prev) =>
+        prev.filter(
+          (p) => !(String(p.conversation_id) === convId && String(p.message_id) === msgId)
+        )
       );
 
-      if (isSupabaseConfigured && supabase && updatedObj) {
+      if (isSupabaseConfigured && supabase) {
         try {
-          const { error: uErr } = await supabase
-            .from('message_reports')
-            .update({
-              status,
-              admin_note: updatedObj.admin_note,
-              reviewed_by: currentUid,
-              reviewed_at: nowIso,
-            })
-            .eq('id', reportId);
-          if (uErr) console.warn('Supabase report update notice:', uErr.message);
+          await supabase
+            .from('conversation_pinned_messages')
+            .delete()
+            .match({ conversation_id: convId, message_id: msgId });
         } catch (e) {
-          console.warn('Supabase report update fallback:', e);
+          console.warn('Supabase unpin fallback:', e);
+        }
+      }
+    },
+    [currentUser?.id]
+  );
+
+  const deleteMessage = useCallback(
+    async ({ messageId, conversationId }) => {
+      if (!currentUser?.id || !messageId) return null;
+      const currentUid = String(currentUser.id);
+      const msgId = String(messageId);
+      const nowIso = new Date().toISOString();
+
+      const targetMsg = (messages || []).find((m) => String(m.id) === msgId);
+      if (!targetMsg) return null;
+
+      // Only allow deleting own messages per requirements
+      if (String(targetMsg.sender_id) !== currentUid) {
+        console.warn('Cannot delete someone else\'s message');
+        return null;
+      }
+
+      const updatedMsg = {
+        ...targetMsg,
+        deleted_at: nowIso,
+        deleted_by: currentUid,
+      };
+
+      setMessages((prev) =>
+        prev.map((m) => (String(m.id) === msgId ? updatedMsg : m))
+      );
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { error } = await supabase
+            .from('messages')
+            .update({
+              deleted_at: nowIso,
+              deleted_by: currentUid,
+            })
+            .eq('id', msgId);
+
+          if (error) {
+            console.warn('Supabase delete message notice:', error.message);
+            if (error.message?.includes('deleted_by')) {
+              await supabase
+                .from('messages')
+                .update({ deleted_at: nowIso })
+                .eq('id', msgId);
+            }
+          }
+        } catch (e) {
+          console.warn('Supabase delete message fallback:', e);
         }
       }
 
-      return updatedObj;
+      return updatedMsg;
     },
-    [currentUser?.id]
+    [currentUser?.id, messages]
   );
 
   const value = {
@@ -3256,6 +3551,7 @@ export function AppDataProvider({ children }) {
     logActivity,
     uploadReportFile,
     uploadTaskAttachment,
+    uploadMessageAttachment,
     submitReport,
     deleteReport,
     createPersonalTask,
@@ -3272,15 +3568,18 @@ export function AppDataProvider({ children }) {
     conversations,
     conversationParticipants,
     messages,
-    messageReports,
+    messageReactions,
+    pinnedMessages,
     getOrCreateDirectConversation,
     sendDirectMessage,
     createGroupConversation,
     sendBroadcastMessage,
     sendMessage,
     markConversationAsRead,
-    reportMessage,
-    updateReportStatus,
+    toggleMessageReaction,
+    pinMessage,
+    unpinMessage,
+    deleteMessage,
     refreshAllData,
     isRefreshing,
     lastRefreshedAt,

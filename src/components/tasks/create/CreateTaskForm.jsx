@@ -419,12 +419,7 @@ export function CreateTaskForm({
       return;
     }
 
-    if (!dueDate) {
-      setError('Due date is required. Please select a due date.');
-      return;
-    }
-
-    if (new Date(dueDate) < new Date(startDate)) {
+    if (dueDate && new Date(dueDate) < new Date(startDate)) {
       setError('Due date cannot be earlier than start date.');
       return;
     }
@@ -906,10 +901,10 @@ export function CreateTaskForm({
           </div>
         </div>
 
-        {/* Row 3 Right: Due Date Field (Visible outside and required) */}
+        {/* Row 3 Right: Due Date Field (Visible outside and optional) */}
         <div className="space-y-1.5">
           <label htmlFor="task-due-date-input" className="block text-[12px] font-semibold text-[#18181B]">
-            Due Date <span className="text-[#DC2626]">*</span>
+            Due Date
           </label>
           <div className="relative">
             <input
