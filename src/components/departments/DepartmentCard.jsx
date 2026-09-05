@@ -45,11 +45,11 @@ export function DepartmentCard({
         <div className="flex items-start gap-3.5 relative">
           {/* Icon Box (56px) */}
           <div
-            className="w-14 h-14 rounded-[10px] bg-[#F4F4F5] border border-[#E5E7EB] flex items-center justify-center flex-shrink-0 text-[#18181B] group-hover:border-[#D4D4D8] transition-colors cursor-pointer"
+            className="w-14 h-14 rounded-[10px] bg-[#F4F4F5] border border-[#E5E7EB] flex items-center justify-center flex-shrink-0 text-[#18181B] group-hover:border-[#D4D4D8] transition-colors cursor-pointer p-2.5 overflow-hidden"
             onClick={handleOpenDepartment}
             title={department.name}
           >
-            <IconComponent className="w-6 h-6 text-[#18181B]" />
+            <IconComponent className="w-6 h-6 text-[#18181B] stroke-[1.85]" />
           </div>
 
           {/* Department Name & Description */}

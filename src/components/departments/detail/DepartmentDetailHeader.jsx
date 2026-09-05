@@ -29,8 +29,8 @@ export function DepartmentDetailHeader({
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
       {/* Left: Department Icon + Name + Metadata */}
       <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
-        <div className="w-14 h-14 rounded-[10px] bg-[#F4F4F5] border border-[#E5E7EB] flex items-center justify-center flex-shrink-0 text-[#18181B]">
-          <IconComponent className="w-6 h-6 text-[#18181B]" />
+        <div className="w-14 h-14 rounded-[10px] bg-[#F4F4F5] border border-[#E5E7EB] flex items-center justify-center flex-shrink-0 text-[#18181B] p-2.5 overflow-hidden">
+          <IconComponent className="w-6 h-6 text-[#18181B] stroke-[1.85]" />
         </div>
 
         <div className="min-w-0">

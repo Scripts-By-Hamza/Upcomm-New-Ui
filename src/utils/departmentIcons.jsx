@@ -18,72 +18,146 @@ import {
   Compass,
   FolderGit2,
   Share2,
+  Bot,
+  Target,
+  Boxes,
+  Palette,
+  Headset,
+  TrendingUp,
 } from 'lucide-react';
+
+export const DEPARTMENT_ICON_LIST = [
+  { key: 'Code2', label: 'Dev & AI', icon: Code2 },
+  { key: 'Megaphone', label: 'Marketing', icon: Megaphone },
+  { key: 'CircleDollarSign', label: 'Finance', icon: CircleDollarSign },
+  { key: 'Users', label: 'HR & Talent', icon: Users },
+  { key: 'LineChart', label: 'Analysis', icon: LineChart },
+  { key: 'PackageSearch', label: 'Sourcing', icon: PackageSearch },
+  { key: 'LayoutGrid', label: 'Catalog', icon: LayoutGrid },
+  { key: 'Share2', label: 'Social Media', icon: Share2 },
+  { key: 'Truck', label: 'Supply Chain', icon: Truck },
+  { key: 'Headphones', label: 'Customer Relations', icon: Headphones },
+  { key: 'PenTool', label: 'UI/UX Design', icon: PenTool },
+  { key: 'BriefcaseBusiness', label: 'Operations', icon: BriefcaseBusiness },
+  { key: 'ShieldCheck', label: 'Security & QA', icon: ShieldCheck },
+  { key: 'Crown', label: 'Executive', icon: Crown },
+  { key: 'Target', label: 'Sales & Growth', icon: Target },
+  { key: 'Bot', label: 'Automation', icon: Bot },
+  { key: 'Compass', label: 'Discovery', icon: Compass },
+  { key: 'Building2', label: 'Enterprise', icon: Building2 },
+];
+
+export const ICON_MAP = {
+  code2: Code2,
+  code: Code2,
+  dev: Code2,
+  megaphone: Megaphone,
+  marketing: Megaphone,
+  circledollarsign: CircleDollarSign,
+  dollar: CircleDollarSign,
+  finance: CircleDollarSign,
+  cfo: CircleDollarSign,
+  users: Users,
+  hr: Users,
+  people: Users,
+  linechart: LineChart,
+  chart: LineChart,
+  analysis: LineChart,
+  packagesearch: PackageSearch,
+  hunting: PackageSearch,
+  sourcing: PackageSearch,
+  layoutgrid: LayoutGrid,
+  listing: LayoutGrid,
+  catalog: LayoutGrid,
+  share2: Share2,
+  smm: Share2,
+  social: Share2,
+  truck: Truck,
+  supply: Truck,
+  logistics: Truck,
+  headphones: Headphones,
+  headset: Headset,
+  cr: Headphones,
+  support: Headphones,
+  pentool: PenTool,
+  palette: Palette,
+  design: PenTool,
+  briefcasebusiness: BriefcaseBusiness,
+  briefcase: BriefcaseBusiness,
+  operations: BriefcaseBusiness,
+  shieldcheck: ShieldCheck,
+  crown: Crown,
+  target: Target,
+  bot: Bot,
+  compass: Compass,
+  foldergit2: FolderGit2,
+  building2: Building2,
+  sparkles: Sparkles,
+  trendingup: TrendingUp,
+  boxes: Boxes,
+};
 
 /**
  * Deterministic presentational icon mapper.
  * Sourced by department.icon or matched deterministically by department.name.
- * Pure UI presentation mapping without database schema modification.
  */
 export function getDepartmentIconComponent(department) {
   if (!department) return Building2;
 
-  const iconKey = (department.icon || '').toLowerCase();
+  const rawIcon = (department.icon || '').trim();
+
+  // If stored icon is a known Lucide icon key
+  if (rawIcon && !rawIcon.startsWith('data:') && !rawIcon.startsWith('<svg') && !rawIcon.startsWith('http')) {
+    const normalizedKey = rawIcon.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (ICON_MAP[normalizedKey]) {
+      return ICON_MAP[normalizedKey];
+    }
+  }
+
   const name = (department.name || '').toLowerCase();
+  const desc = (department.description || '').toLowerCase();
+  const combined = `${name} ${desc}`;
 
-  // 1. Direct icon key matches if stored
-  if (iconKey === 'code' || iconKey === 'code2' || iconKey === 'dev') return Code2;
-  if (iconKey === 'megaphone' || iconKey === 'marketing') return Megaphone;
-  if (iconKey === 'briefcase' || iconKey === 'operations' || iconKey === 'business') return BriefcaseBusiness;
-  if (iconKey === 'pentool' || iconKey === 'design' || iconKey === 'palette') return PenTool;
-  if (iconKey === 'users' || iconKey === 'hr' || iconKey === 'people') return Users;
-  if (iconKey === 'dollar' || iconKey === 'finance' || iconKey === 'cfo') return CircleDollarSign;
-  if (iconKey === 'headphones' || iconKey === 'support' || iconKey === 'cr') return Headphones;
-  if (iconKey === 'chart' || iconKey === 'analysis' || iconKey === 'analytics') return LineChart;
-  if (iconKey === 'sourcing' || iconKey === 'hunting') return PackageSearch;
-  if (iconKey === 'supply' || iconKey === 'logistics') return Truck;
-
-  // 2. Name-based deterministic keyword matching
-  if (name.includes('web') || name.includes('dev') || name.includes('software') || name.includes('ai') || name.includes('automation') || name.includes('code')) {
+  // Name / description based deterministic matching
+  if (combined.includes('web') || combined.includes('dev') || combined.includes('software') || combined.includes('ai automation') || combined.includes('code')) {
     return Code2;
   }
-  if (name.includes('marketing') || name.includes('campaign') || name.includes('seo') || name.includes('ppc')) {
+  if (combined.includes('marketing') || combined.includes('campaign') || combined.includes('seo') || combined.includes('ppc') || combined.includes('lead generation')) {
     return Megaphone;
   }
-  if (name.includes('design') || name.includes('ui') || name.includes('ux') || name.includes('creative') || name.includes('brand')) {
-    return PenTool;
-  }
-  if (name.includes('operation') || name.includes('coo') || name.includes('workflow')) {
-    return BriefcaseBusiness;
-  }
-  if (name.includes('supply') || name.includes('logistics') || name.includes('inventory')) {
-    return Truck;
-  }
-  if (name.includes('social') || name.includes('smm') || name.includes('media')) {
-    return Share2;
-  }
-  if (name.includes('listing') || name.includes('catalog')) {
-    return LayoutGrid;
-  }
-  if (name.includes('analysis') || name.includes('analytics') || name.includes('research')) {
-    return LineChart;
-  }
-  if (name.includes('hunting') || name.includes('sourcing') || name.includes('vendor')) {
-    return Compass;
-  }
-  if (name.includes('human') || name.includes('hr') || name.includes('people') || name.includes('talent')) {
-    return Users;
-  }
-  if (name.includes('finance') || name.includes('cfo') || name.includes('budget') || name.includes('account')) {
+  if (combined.includes('finance') || combined.includes('cfo') || combined.includes('budget') || combined.includes('account') || combined.includes('cash flow')) {
     return CircleDollarSign;
   }
-  if (name.includes('customer') || name.includes('relation') || name.includes('support') || name.includes('cr')) {
+  if (combined.includes('human resource') || combined.includes('talent') || combined.includes('employee') || combined.includes('hr') || combined.includes('onboarding')) {
+    return Users;
+  }
+  if (combined.includes('product analysis') || combined.includes('analytics') || combined.includes('profit margin') || combined.includes('price analysis')) {
+    return LineChart;
+  }
+  if (combined.includes('hunting') || combined.includes('sourcing') || combined.includes('sample validation') || combined.includes('vendor')) {
+    return PackageSearch;
+  }
+  if (combined.includes('listing') || combined.includes('catalog') || combined.includes('metadata') || combined.includes('product upload')) {
+    return LayoutGrid;
+  }
+  if (combined.includes('social') || combined.includes('smm') || combined.includes('brand awareness') || combined.includes('community engagement')) {
+    return Share2;
+  }
+  if (combined.includes('supply chain') || combined.includes('logistics') || combined.includes('inventory') || combined.includes('fulfillment')) {
+    return Truck;
+  }
+  if (combined.includes('customer') || combined.includes('grievance') || combined.includes('client communication') || combined.includes('support') || combined.includes('cr')) {
     return Headphones;
   }
-  if (name.includes('executive') || name.includes('ceo') || name.includes('leadership')) {
+  if (combined.includes('design') || combined.includes('ui') || combined.includes('ux') || combined.includes('creative')) {
+    return PenTool;
+  }
+  if (combined.includes('operation') || combined.includes('workflow') || combined.includes('coo')) {
+    return BriefcaseBusiness;
+  }
+  if (combined.includes('executive') || combined.includes('leadership') || combined.includes('ceo')) {
     return Crown;
   }
 
-  // Fallback icon
   return Building2;
 }

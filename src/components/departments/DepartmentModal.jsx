@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Loader2, Building2 } from 'lucide-react';
-
-const PRESET_COLORS = [
-  '#059669', // Brand Green
-  '#2563EB', // Blue
-  '#7C3AED', // Violet
-  '#D97706', // Amber
-  '#DC2626', // Red
-  '#0891B2', // Cyan
-  '#EA580C', // Orange
-  '#EC4899', // Pink
-];
+import { X, Loader2 } from 'lucide-react';
+import { DEPARTMENT_ICON_LIST, getDepartmentIconComponent } from '../../utils/departmentIcons';
 
 export function DepartmentModal({
   isOpen,
@@ -23,7 +13,7 @@ export function DepartmentModal({
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState('#059669');
+  const [icon, setIcon] = useState('');
   const [hodId, setHodId] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,12 +25,12 @@ export function DepartmentModal({
       if (initialData) {
         setName(initialData.name || '');
         setDescription(initialData.description || '');
-        setColor(initialData.color || '#059669');
+        setIcon(initialData.icon || '');
         setHodId(initialData.hod_id || '');
       } else {
         setName('');
         setDescription('');
-        setColor('#059669');
+        setIcon('Code2');
         setHodId('');
       }
       setError('');
@@ -92,7 +82,7 @@ export function DepartmentModal({
       await onSubmit({
         name: trimmedName,
         description: description.trim(),
-        color,
+        icon: icon || null,
         hod_id: hodId || null,
       });
       onClose();
@@ -201,34 +191,42 @@ export function DepartmentModal({
               />
             </div>
 
-            {/* Accent Color & HOD Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-              {/* Accent Color */}
+            {/* Department Icon & HOD Assignment */}
+            <div className="space-y-4">
+              {/* Department Icon Selector */}
               <div>
-                <label className="block text-[12px] font-medium text-[#18181B] mb-1.5">
-                  Accent Color
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={(e) => setColor(e.target.value)}
-                    className="w-9 h-9 p-0.5 bg-white border border-[#E5E7EB] rounded-[8px] cursor-pointer flex-shrink-0"
-                  />
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {PRESET_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setColor(c)}
-                        className={`w-5 h-5 rounded-full transition-transform ${
-                          color === c
-                            ? 'scale-110 ring-2 ring-offset-1 ring-[#18181B]'
-                            : 'hover:scale-105'
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[12px] font-medium text-[#18181B]">
+                    Department Icon
+                  </label>
+                  <span className="text-[11.5px] text-[#71717A]">
+                    {DEPARTMENT_ICON_LIST.find(
+                      (i) => i.key.toLowerCase() === (icon || '').toLowerCase()
+                    )?.label || 'Selected Icon'}
+                  </span>
+                </div>
+                <div className="p-2 bg-[#F9FAFB] border border-[#E5E7EB] rounded-[8px]">
+                  <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5 max-h-[110px] overflow-y-auto pr-0.5">
+                    {DEPARTMENT_ICON_LIST.map((item) => {
+                      const ItemIcon = item.icon;
+                      const isSelected =
+                        (icon || '').toLowerCase() === item.key.toLowerCase();
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setIcon(item.key)}
+                          title={item.label}
+                          className={`h-9 rounded-[6px] flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#ECFDF5] border-2 border-[#059669] text-[#059669] shadow-xs'
+                              : 'bg-white border border-[#E5E7EB] text-[#52525B] hover:text-[#18181B] hover:border-[#D4D4D8]'
+                          }`}
+                        >
+                          <ItemIcon className="w-4 h-4 stroke-[2]" />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
