@@ -111,7 +111,14 @@ export default function App() {
               {/* Management Requests & Legacy Request Redirects */}
               <Route path="inbox" element={<InboxPage />} />
               <Route path="requests" element={<InboxPage />} />
-              <Route path="delete-requests" element={<Navigate to="/inbox?type=delete" replace />} />
+              <Route
+                path="delete-requests"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'it_support_admin']}>
+                    <Navigate to="/inbox?type=delete" replace />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="completion-requests" element={<Navigate to="/inbox?type=completion" replace />} />
               <Route path="activity" element={<ActivityLogPage />} />
               <Route

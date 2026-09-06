@@ -68,31 +68,27 @@ export function InboxPage() {
   }, [completionRequests, taskList, currentUser, users, currentUserId]);
 
   const historicalDeleteRequests = useMemo(() => {
-    if (!currentUserId) return [];
-    if (canReviewDelete) {
-      const list = [...deleteRequests.filter((req) => req.status === 'approved' || req.status === 'rejected')];
+    if (!currentUserId || !canReviewDelete) return [];
 
-      // Also include tasks soft-deleted directly if not in deleteRequests
-      (taskList || []).forEach((t) => {
-        if (t.is_deleted && !list.some((r) => r.task_id === t.id)) {
-          list.push({
-            id: `del-hist-${t.id}`,
-            task_id: t.id,
-            requested_by: t.deleted_by || t.created_by,
-            reviewed_by: t.deleted_by,
-            reviewed_at: t.deleted_at,
-            created_at: t.deleted_at || t.created_at,
-            status: 'approved',
-            reason: 'Direct task deletion',
-          });
-        }
-      });
+    const list = [...deleteRequests.filter((req) => req.status === 'approved' || req.status === 'rejected')];
 
-      return list;
-    } else {
-      // Non-admin can view & track any delete requests they submitted
-      return deleteRequests.filter((req) => req.requested_by === currentUserId);
-    }
+    // Also include tasks soft-deleted directly if not in deleteRequests
+    (taskList || []).forEach((t) => {
+      if (t.is_deleted && !list.some((r) => r.task_id === t.id)) {
+        list.push({
+          id: `del-hist-${t.id}`,
+          task_id: t.id,
+          requested_by: t.deleted_by || t.created_by,
+          reviewed_by: t.deleted_by,
+          reviewed_at: t.deleted_at,
+          created_at: t.deleted_at || t.created_at,
+          status: 'approved',
+          reason: 'Direct task deletion',
+        });
+      }
+    });
+
+    return list;
   }, [deleteRequests, taskList, currentUserId, canReviewDelete]);
 
   // Combined Normalized Pending Dataset
@@ -179,16 +175,12 @@ export function InboxPage() {
 
   // Tab Counts for Pending Requests
   const tabCounts = useMemo(() => {
-    const myPendingDeleteCount = deleteRequests.filter(
-      (r) => r.requested_by === currentUserId && r.status === 'pending'
-    ).length;
-
     return {
-      all: pendingCompletionRequests.length + (canReviewDelete ? pendingDeleteRequests.length : myPendingDeleteCount),
+      all: pendingCompletionRequests.length + (canReviewDelete ? pendingDeleteRequests.length : 0),
       completion: pendingCompletionRequests.length,
-      delete: canReviewDelete ? pendingDeleteRequests.length : myPendingDeleteCount,
+      delete: canReviewDelete ? pendingDeleteRequests.length : 0,
     };
-  }, [pendingCompletionRequests.length, pendingDeleteRequests.length, deleteRequests, currentUserId, canReviewDelete]);
+  }, [pendingCompletionRequests.length, pendingDeleteRequests.length, canReviewDelete]);
 
   // URL State Management
   const activeTab = searchParams.get('type') || 'all';
@@ -207,6 +199,13 @@ export function InboxPage() {
     }
     setSearchParams(next, { replace: true });
   };
+
+  // If a non-admin is on the delete tab, automatically redirect to 'all'
+  useEffect(() => {
+    if (!canReviewDelete && activeTab === 'delete') {
+      updateParam('type', 'all');
+    }
+  }, [canReviewDelete, activeTab]);
 
   const handleTabChange = (newTab) => {
     updateParam('type', newTab);
@@ -407,7 +406,9 @@ export function InboxPage() {
           Requests
         </h1>
         <p className="text-[12.5px] text-[#71717A] mt-0.5">
-          Review pending task requests and track completion & deletion history.
+          {canReviewDelete
+            ? 'Review pending task requests and track completion & deletion history.'
+            : 'Review pending task completion requests and track completion history.'}
         </p>
       </div>
 
@@ -416,7 +417,7 @@ export function InboxPage() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         counts={tabCounts}
-        showDeleteTab={true}
+        showDeleteTab={canReviewDelete}
       />
 
       {/* 3. Toolbar (Search, Filters, Active Chips) */}

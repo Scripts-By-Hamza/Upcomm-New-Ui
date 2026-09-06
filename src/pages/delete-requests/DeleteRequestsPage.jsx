@@ -13,6 +13,17 @@ export function DeleteRequestsPage() {
   const { users, currentUser } = useAuth();
   const navigate = useNavigate();
 
+  const role = (currentUser?.role || '').toLowerCase();
+  const isAdmin = role === 'admin' || role === 'it_support_admin';
+
+  React.useEffect(() => {
+    if (!isAdmin) {
+      navigate('/inbox', { replace: true });
+    }
+  }, [isAdmin, navigate]);
+
+  if (!isAdmin) return null;
+
   return (
     <div className="space-y-6">
       {/* Banner */}
