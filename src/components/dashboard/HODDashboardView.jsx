@@ -14,6 +14,7 @@ import { DepartmentDueToday } from './DepartmentDueToday';
 import { DepartmentTeamWorkload } from './DepartmentTeamWorkload';
 import { DashboardRecentComments } from './DashboardRecentComments';
 import { DepartmentRecentActivity } from './DepartmentRecentActivity';
+import { DashboardMyFocusCard } from './DashboardMyFocusCard';
 import { Building2 } from 'lucide-react';
 
 export function HODDashboardView() {
@@ -287,14 +288,14 @@ export function HODDashboardView() {
 
       {/* 3. Main Two-Column Balanced Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Left Column: Needs Attention & Due Today */}
+        {/* Left Column: Needs Attention & My Focus */}
         <div className="space-y-5">
           <DepartmentAttentionPanel
             overdueCount={overdueCount}
             completionRequestsCount={reviewableCompletionRequests.length}
             dueSoonCount={dueSoonCount}
           />
-          <DepartmentDueToday tasks={departmentTasks} users={users} />
+          <DashboardMyFocusCard />
         </div>
 
         {/* Right Column: Recent Comments & Team Workload */}
@@ -308,13 +309,16 @@ export function HODDashboardView() {
         </div>
       </div>
 
-      {/* 4. Full-Width Bottom Section: Recent Department Activity */}
-      <DepartmentRecentActivity
-        activityLogs={activityLogs}
-        users={users}
-        tasks={tasks}
-        departmentId={departmentId}
-      />
+      {/* 4. Bottom Section: Due Today & Recent Department Activity */}
+      <div className="space-y-5">
+        <DepartmentDueToday tasks={departmentTasks} users={users} />
+        <DepartmentRecentActivity
+          activityLogs={activityLogs}
+          users={users}
+          tasks={tasks}
+          departmentId={departmentId}
+        />
+      </div>
     </div>
   );
 }

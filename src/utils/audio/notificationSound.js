@@ -256,6 +256,28 @@ export function preloadNotificationSound() {
   }
 }
 
+export function unlockAndPrimeAudio() {
+  if (typeof window === 'undefined') return;
+  try {
+    if (!audioElement) {
+      preloadNotificationSound();
+    }
+    const ctx = getAudioContext();
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      // Micro-buffer to unlock iOS / WebKit audio pipeline
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    }
+    isAudioUnlocked = true;
+  } catch {}
+}
+
 /**
  * Initializes browser autoplay unlocking on first user interaction.
  * Prepares audio silently without any audible playback.
@@ -264,18 +286,16 @@ export function initNotificationAudioUnlock() {
   if (typeof window === 'undefined' || isAudioUnlocked || isUnlockListenerAttached) return;
 
   const unlockHandler = () => {
-    try {
-      if (!audioElement) {
-        preloadNotificationSound();
-      }
-      getAudioContext();
-      isAudioUnlocked = true;
-    } catch {}
+    unlockAndPrimeAudio();
 
     window.removeEventListener('pointerdown', unlockHandler);
     window.removeEventListener('click', unlockHandler);
     window.removeEventListener('keydown', unlockHandler);
     window.removeEventListener('touchstart', unlockHandler);
+    window.removeEventListener('touchend', unlockHandler);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('touchstart', unlockHandler);
+    }
     isUnlockListenerAttached = false;
   };
 
@@ -284,6 +304,10 @@ export function initNotificationAudioUnlock() {
   window.addEventListener('click', unlockHandler, { once: true, passive: true });
   window.addEventListener('keydown', unlockHandler, { once: true, passive: true });
   window.addEventListener('touchstart', unlockHandler, { once: true, passive: true });
+  window.addEventListener('touchend', unlockHandler, { once: true, passive: true });
+  if (typeof document !== 'undefined') {
+    document.addEventListener('touchstart', unlockHandler, { once: true, passive: true });
+  }
 }
 
 function isInstalledMobileStandalone() {
@@ -325,10 +349,12 @@ export function shouldPlayNotificationSound({
     return false;
   }
 
-  // 6. Installed Mobile Double-Sound Prevention:
-  // When running as an installed standalone mobile PWA, suppress custom audio chime
-  // so the user hears only the native system Push sound.
-  if (isInstalledMobileStandalone()) {
+  // 6. Installed Mobile Double-Sound Prevention for Remote Push:
+  // When running as an installed standalone mobile PWA, suppress remote server push alerts
+  // (e.g. chat messages, task comments) so the user hears only the native system Push sound.
+  // CRITICAL EXEMPTION: FOCUS_TIMER_COMPLETE is a local in-app countdown timer (no OS server push),
+  // so it MUST ALWAYS PLAY on mobile browsers and installed standalone PWAs!
+  if (eventType !== SOUND_ENABLED_EVENT_TYPES.FOCUS_TIMER_COMPLETE && isInstalledMobileStandalone()) {
     return false;
   }
 
@@ -382,7 +408,7 @@ export function playNotificationSound(params = {}) {
 /**
  * Plays the canonical UPCOMM notification sound sequentially for a specified count (e.g. 2 times).
  * Guarantees that playback #2 strictly begins AFTER playback #1 completes its 'ended' event.
- * Handles deduplication, multi-tab coordination, and Web Audio fallback.
+ * Handles deduplication, multi-tab coordination, mobile vibration, and Web Audio fallback.
  */
 export async function playNotificationSoundSequence(params = {}) {
   const { eventId, eventType = SOUND_ENABLED_EVENT_TYPES.FOCUS_TIMER_COMPLETE, currentUser, count = 2 } = params;
@@ -395,6 +421,13 @@ export async function playNotificationSoundSequence(params = {}) {
   // Mark event as played immediately across all tabs to prevent multi-tab duplicate storms
   if (eventId) {
     markEventAsPlayed(eventId, true);
+  }
+
+  // Optional mobile haptic vibration
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([180, 100, 180]);
+    } catch {}
   }
 
   const playSingleAudio = () => {
@@ -424,12 +457,12 @@ export async function playNotificationSoundSequence(params = {}) {
           playPromise.catch((err) => {
             console.debug?.('[NotificationSound] HTML5 sequence fallback:', err);
             playWebAudioChimeFallback();
-            setTimeout(finish, 500);
+            setTimeout(finish, 550);
           });
         }
       } catch (e) {
         playWebAudioChimeFallback();
-        setTimeout(() => resolve(true), 500);
+        setTimeout(() => resolve(true), 550);
       }
     });
   };
@@ -437,9 +470,9 @@ export async function playNotificationSoundSequence(params = {}) {
   try {
     for (let i = 0; i < count; i++) {
       await playSingleAudio();
-      // Clean brief pause (100ms) between sound #1 and sound #2
+      // Clean brief pause (120ms) between sound #1 and sound #2
       if (i < count - 1) {
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 120));
       }
     }
     return true;

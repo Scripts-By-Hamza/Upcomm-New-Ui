@@ -14,6 +14,7 @@ import {
   SOUND_ENABLED_EVENT_TYPES,
   preloadNotificationSound,
   initNotificationAudioUnlock,
+  unlockAndPrimeAudio,
 } from '../utils/audio/notificationSound';
 
 const FocusTimerContext = createContext(null);
@@ -303,9 +304,9 @@ export function FocusTimerProvider({ children }) {
       return false;
     }
 
-    // Ensure audio unlocking is initialized on direct user gesture
+    // Ensure audio unlocking and priming is executed on direct user gesture
     try {
-      initNotificationAudioUnlock();
+      unlockAndPrimeAudio();
       preloadNotificationSound();
     } catch {}
 
@@ -331,6 +332,9 @@ export function FocusTimerProvider({ children }) {
 
   const addSeconds = useCallback((deltaSec = 10) => {
     if (!userId || timerRef.current.status !== 'running' || !timerRef.current.endAt) return;
+    try {
+      unlockAndPrimeAudio();
+    } catch {}
 
     const addedMs = deltaSec * 1000;
     const newEndAt = timerRef.current.endAt + addedMs;
@@ -352,6 +356,9 @@ export function FocusTimerProvider({ children }) {
 
   const subtractSeconds = useCallback((deltaSec = 10) => {
     if (!userId || timerRef.current.status !== 'running' || !timerRef.current.endAt) return;
+    try {
+      unlockAndPrimeAudio();
+    } catch {}
 
     const now = Date.now();
     const subtractedMs = deltaSec * 1000;
@@ -392,6 +399,9 @@ export function FocusTimerProvider({ children }) {
 
   const resetTimer = useCallback(() => {
     if (!userId) return;
+    try {
+      unlockAndPrimeAudio();
+    } catch {}
     clearStoredTimer(userId);
     applyResetState(true);
   }, [userId, applyResetState]);
