@@ -211,10 +211,7 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
         const active = customIsActive !== undefined ? customIsActive : routerIsActive;
         return (
           <>
-            {/* Active Left Indicator */}
-            {active && (
-              <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-[#059669]" />
-            )}
+            {/* Item Content */}
 
             <div className="flex items-center gap-2.5 min-w-0">
               <Icon
@@ -340,9 +337,7 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
                   }
                 }}
               >
-                {isAllTasksActive && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-[#059669]" />
-                )}
+
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative flex-shrink-0">
                     <ListTodo className="w-[18px] h-[18px] text-[#71717A] group-hover:text-[#18181B]" />
@@ -489,9 +484,7 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
                     }
                   }}
                 >
-                  {isTeamActive && (
-                    <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-[#059669]" />
-                  )}
+
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Users
                       className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${
