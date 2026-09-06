@@ -84,37 +84,214 @@ const HEADER_KEY_MAP = {
   status: 'status',
   startdate: 'startDate',
   start: 'startDate',
+  startingdate: 'startDate',
+  startday: 'startDate',
   duedate: 'dueDate',
   due: 'dueDate',
+  deadline: 'dueDate',
+  enddate: 'dueDate',
+  end: 'dueDate',
+  completiondate: 'dueDate',
   attachments: 'attachments',
   attachment: 'attachments',
   links: 'attachments',
 };
 
 /**
- * Parse date string and ensure strict YYYY-MM-DD
+ * Month names mapping for textual dates
  */
-export function parseStrictDateString(val) {
-  if (!val) return null;
-  const trimmed = String(val).trim();
-  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const year = parseInt(match[1], 10);
-  const month = parseInt(match[2], 10);
-  const day = parseInt(match[3], 10);
+const MONTH_NAME_MAP = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
+};
 
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+/**
+ * Clean raw date input by stripping invisible Unicode characters, quotes, and whitespace
+ */
+export function cleanDateInput(val) {
+  if (val === null || val === undefined) return '';
+  return String(val)
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202F]/g, '')
+    .replace(/^["']+|["']+$/g, '')
+    .replace(/\s*([/.\-])\s*/g, '$1')
+    .trim();
+}
 
-  const d = new Date(year, month - 1, day);
+/**
+ * Validate calendar date and format as canonical YYYY-MM-DD
+ */
+function validateAndFormatDate(year, month, day) {
+  if (!year || !month || !day) return null;
+  const y = Number(year);
+  const m = Number(month);
+  const d = Number(day);
+
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+  if (y < 1970 || y > 2100) return null;
+  if (m < 1 || m > 12) return null;
+  if (d < 1 || d > 31) return null;
+
+  const dateObj = new Date(y, m - 1, d);
   if (
-    d.getFullYear() !== year ||
-    d.getMonth() !== month - 1 ||
-    d.getDate() !== day
+    dateObj.getFullYear() !== y ||
+    dateObj.getMonth() !== m - 1 ||
+    dateObj.getDate() !== d
   ) {
     return null;
   }
 
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+/**
+ * Parse date string flexibly and universally, normalizing to YYYY-MM-DD.
+ * Automatically handles:
+ * - Google Sheets / Excel M/D/YYYY (e.g. 9/5/2026, 9/15/2026)
+ * - Standard DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY (e.g. 05-09-2026, 25/09/2026)
+ * - ISO YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD (e.g. 2026-09-05)
+ * - 2-digit years (e.g. 9/5/26, 05-09-26 -> 2026-09-05)
+ * - Textual dates (05-Sep-2026, Sep 05 2026, 5 Sep 2026, September 5 2026)
+ * - Timestamps and ISO strings (2026-09-05T00:00:00.000Z, 9/5/2026 12:00:00 AM, 05-09-2026 14:30:00)
+ * - Excel serial numbers (45540)
+ * - Date objects
+ */
+export function parseStrictDateString(val) {
+  if (val === null || val === undefined) return null;
+
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    return validateAndFormatDate(val.getFullYear(), val.getMonth() + 1, val.getDate());
+  }
+
+  let str = cleanDateInput(val);
+  if (!str) return null;
+
+  // Handle Excel Serial Number (e.g. 45540)
+  if (/^\d{5}$/.test(str)) {
+    const num = Number(str);
+    if (num >= 25000 && num <= 75000) {
+      const utcMs = (num - 25569) * 86400 * 1000;
+      const d = new Date(utcMs);
+      if (!isNaN(d.getTime())) {
+        return validateAndFormatDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+      }
+    }
+  }
+
+  // Strip trailing time e.g. " 00:00:00", " 12:00:00 AM", "T00:00:00.000Z", " 14:30"
+  const cleanStr = str
+    .replace(/[T\s]\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:\s*[AP]M)?(?:Z|[+-]\d{2}(?::?\d{2})?)?$/i, '')
+    .trim();
+
+  // Pattern 1: YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD (Year first)
+  const ymdMatch = cleanStr.match(/^(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})$/);
+  if (ymdMatch) {
+    const res = validateAndFormatDate(ymdMatch[1], ymdMatch[2], ymdMatch[3]);
+    if (res) return res;
+  }
+
+  // Pattern 2: D/M/Y or M/D/Y with slash, dash, dot, or space (e.g. 9/5/2026, 05-09-2026)
+  const dmyMatch = cleanStr.match(/^(\d{1,2})([-/. ])(\d{1,2})\2(\d{2,4})$/);
+  if (dmyMatch) {
+    let p1 = parseInt(dmyMatch[1], 10);
+    const sep = dmyMatch[2];
+    let p2 = parseInt(dmyMatch[3], 10);
+    let rawYear = parseInt(dmyMatch[4], 10);
+
+    if (rawYear < 100) {
+      rawYear += rawYear < 70 ? 2000 : 1900;
+    }
+
+    let year = rawYear;
+    let month = null;
+    let day = null;
+
+    if (p1 > 12 && p2 <= 12) {
+      // p1 must be day, p2 must be month (e.g. 25/9/2026)
+      day = p1;
+      month = p2;
+    } else if (p2 > 12 && p1 <= 12) {
+      // p2 must be day, p1 must be month (e.g. 9/25/2026)
+      month = p1;
+      day = p2;
+    } else {
+      // Both <= 12 (e.g. 9/5/2026 or 05-09-2026)
+      // Slashes '/' are standard Google Sheets / US format (M/D/YYYY)
+      // Dashes '-' or dots '.' are standard DD-MM-YYYY format
+      if (sep === '/') {
+        month = p1;
+        day = p2;
+      } else {
+        day = p1;
+        month = p2;
+      }
+    }
+
+    const res = validateAndFormatDate(year, month, day);
+    if (res) return res;
+  }
+
+  // Pattern 3a: Day MonthName Year (e.g. "05 Sep 2026", "5-September-2026", "5th September 2026")
+  const textDmyMatch = cleanStr.match(/^(\d{1,2})(?:st|nd|rd|th)?[-/\s.,]+([a-zA-Z]+)[-/\s.,]+(\d{2,4})$/);
+  if (textDmyMatch) {
+    const day = parseInt(textDmyMatch[1], 10);
+    const monthKey = textDmyMatch[2].toLowerCase();
+    const month = MONTH_NAME_MAP[monthKey];
+    let year = parseInt(textDmyMatch[3], 10);
+    if (year < 100) year += year < 70 ? 2000 : 1900;
+    if (month) {
+      const res = validateAndFormatDate(year, month, day);
+      if (res) return res;
+    }
+  }
+
+  // Pattern 3b: MonthName Day Year (e.g. "Sep 05, 2026", "September 5 2026", "Sep-05-2026")
+  const textMdyMatch = cleanStr.match(/^([a-zA-Z]+)[-/\s.,]+(\d{1,2})(?:st|nd|rd|th)?(?:[-/\s.,]+|,?\s+)(\d{2,4})$/);
+  if (textMdyMatch) {
+    const monthKey = textMdyMatch[1].toLowerCase();
+    const month = MONTH_NAME_MAP[monthKey];
+    const day = parseInt(textMdyMatch[2], 10);
+    let year = parseInt(textMdyMatch[3], 10);
+    if (year < 100) year += year < 70 ? 2000 : 1900;
+    if (month) {
+      const res = validateAndFormatDate(year, month, day);
+      if (res) return res;
+    }
+  }
+
+  // Pattern 3c: Year MonthName Day (e.g. "2026-Sep-05", "2026 Sep 5")
+  const textYmdMatch = cleanStr.match(/^(\d{4})[-/\s.,]+([a-zA-Z]+)[-/\s.,]+(\d{1,2})(?:st|nd|rd|th)?$/);
+  if (textYmdMatch) {
+    const year = parseInt(textYmdMatch[1], 10);
+    const monthKey = textYmdMatch[2].toLowerCase();
+    const month = MONTH_NAME_MAP[monthKey];
+    const day = parseInt(textYmdMatch[3], 10);
+    if (month) {
+      const res = validateAndFormatDate(year, month, day);
+      if (res) return res;
+    }
+  }
+
+  // Fallback: Native Date Parse
+  const parsedFallback = new Date(str);
+  if (!isNaN(parsedFallback.getTime())) {
+    const y = parsedFallback.getFullYear();
+    const m = parsedFallback.getMonth() + 1;
+    const d = parsedFallback.getDate();
+    return validateAndFormatDate(y, m, d);
+  }
+
+  return null;
 }
 
 /**
@@ -390,7 +567,7 @@ export function validateCsvRow(rowObject, rowNumber, users = [], currentUser = n
     }
   }
 
-  // 7. Start Date (Required, YYYY-MM-DD)
+  // 7. Start Date (Required, YYYY-MM-DD or DD-MM-YYYY)
   const rawStartDate = String(rowObject.startDate || '').trim();
   let startDate = '';
   if (!rawStartDate) {
@@ -398,17 +575,17 @@ export function validateCsvRow(rowObject, rowNumber, users = [], currentUser = n
   } else {
     startDate = parseStrictDateString(rawStartDate);
     if (!startDate) {
-      errors.push(`Invalid Start Date "${rawStartDate}". Use YYYY-MM-DD format (e.g. 2026-09-05).`);
+      errors.push(`Invalid Start Date "${rawStartDate}". Use YYYY-MM-DD or DD-MM-YYYY format (e.g. 2026-09-05 or 05-09-2026).`);
     }
   }
 
-  // 8. Due Date (Optional, YYYY-MM-DD)
+  // 8. Due Date (Optional, YYYY-MM-DD or DD-MM-YYYY)
   const rawDueDate = String(rowObject.dueDate || '').trim();
   let dueDate = null;
   if (rawDueDate) {
     dueDate = parseStrictDateString(rawDueDate);
     if (!dueDate) {
-      errors.push(`Invalid Due Date "${rawDueDate}". Use YYYY-MM-DD format (e.g. 2026-09-15).`);
+      errors.push(`Invalid Due Date "${rawDueDate}". Use YYYY-MM-DD or DD-MM-YYYY format (e.g. 2026-09-15 or 15-09-2026).`);
     } else if (startDate && new Date(dueDate) < new Date(startDate)) {
       errors.push(`Due Date (${dueDate}) cannot be earlier than Start Date (${startDate}).`);
     }

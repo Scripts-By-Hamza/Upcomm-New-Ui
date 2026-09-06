@@ -317,7 +317,7 @@ export function ImportTaskDialog({ isOpen, onClose, onSuccess }) {
                         3. Dates
                       </span>
                       <p className="text-[#52525B] dark:text-[#D4D4D8] text-[11.5px] mt-0.5">
-                        Use <span className="font-mono font-semibold">YYYY-MM-DD</span> format (e.g. <code>2026-09-05</code>). Due Date is optional, but if provided must be on or after Start Date.
+                        Supports <span className="font-mono font-semibold">YYYY-MM-DD</span> (e.g. <code>2026-09-05</code>), Google Sheets format <span className="font-mono font-semibold">9/5/2026</span> / <span className="font-mono font-semibold">M/D/YYYY</span>, or <span className="font-mono font-semibold">DD-MM-YYYY / DD/MM/YYYY</span> (e.g. <code>05-09-2026</code>). Due Date is optional, but if provided must be on or after Start Date.
                       </p>
                     </div>
 

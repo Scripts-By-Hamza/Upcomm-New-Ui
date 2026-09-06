@@ -32,6 +32,7 @@ export const SOUND_ENABLED_EVENT_TYPES = Object.freeze({
   TASK_ASSIGNED: 'TASK_ASSIGNED',
   COMPLETION_REQUEST: 'COMPLETION_REQUEST',
   DELETE_REQUEST: 'DELETE_REQUEST',
+  FOCUS_TIMER_COMPLETE: 'FOCUS_TIMER_COMPLETE',
 });
 
 // Reusable audio elements and Web Audio Context
@@ -314,8 +315,8 @@ export function shouldPlayNotificationSound({
     return false;
   }
 
-  // 4. Exclude self-events (actor must not be current user)
-  if (actorUserId && String(actorUserId) === currentUserId) {
+  // 4. Exclude self-events (actor must not be current user) — except for personal utility events like FOCUS_TIMER_COMPLETE
+  if (eventType !== SOUND_ENABLED_EVENT_TYPES.FOCUS_TIMER_COMPLETE && actorUserId && String(actorUserId) === currentUserId) {
     return false;
   }
 
@@ -375,6 +376,76 @@ export function playNotificationSound(params = {}) {
   } catch (e) {
     playWebAudioChimeFallback();
     return true;
+  }
+}
+
+/**
+ * Plays the canonical UPCOMM notification sound sequentially for a specified count (e.g. 2 times).
+ * Guarantees that playback #2 strictly begins AFTER playback #1 completes its 'ended' event.
+ * Handles deduplication, multi-tab coordination, and Web Audio fallback.
+ */
+export async function playNotificationSoundSequence(params = {}) {
+  const { eventId, eventType = SOUND_ENABLED_EVENT_TYPES.FOCUS_TIMER_COMPLETE, currentUser, count = 2 } = params;
+
+  // Verify business & privacy conditions
+  if (!shouldPlayNotificationSound({ eventId, eventType, currentUser })) {
+    return false;
+  }
+
+  // Mark event as played immediately across all tabs to prevent multi-tab duplicate storms
+  if (eventId) {
+    markEventAsPlayed(eventId, true);
+  }
+
+  const playSingleAudio = () => {
+    return new Promise((resolve) => {
+      try {
+        const audio = new Audio(NOTIFICATION_SOUND_URL);
+        audio.volume = NOTIFICATION_SOUND_VOLUME;
+        audio.loop = false;
+
+        let hasEnded = false;
+        const finish = () => {
+          if (hasEnded) return;
+          hasEnded = true;
+          audio.removeEventListener('ended', finish);
+          audio.removeEventListener('error', finish);
+          resolve(true);
+        };
+
+        audio.addEventListener('ended', finish, { once: true });
+        audio.addEventListener('error', finish, { once: true });
+
+        // Safety fallback timeout if 'ended' is delayed by browser (canonical audio duration is ~500ms)
+        setTimeout(finish, 1200);
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.debug?.('[NotificationSound] HTML5 sequence fallback:', err);
+            playWebAudioChimeFallback();
+            setTimeout(finish, 500);
+          });
+        }
+      } catch (e) {
+        playWebAudioChimeFallback();
+        setTimeout(() => resolve(true), 500);
+      }
+    });
+  };
+
+  try {
+    for (let i = 0; i < count; i++) {
+      await playSingleAudio();
+      // Clean brief pause (100ms) between sound #1 and sound #2
+      if (i < count - 1) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('[NotificationSound] Sequential play error:', err);
+    return false;
   }
 }
 

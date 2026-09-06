@@ -123,9 +123,33 @@ export function AppDataProvider({ children }) {
   const [activityLogs, setActivityLogs] = useState(INITIAL_ACTIVITY_LOGS);
   const [reports, setReports] = useState(INITIAL_REPORTS);
   const [personalTasks, setPersonalTasks] = useState([]);
-  const [settings, setSettings] = useState(INITIAL_SETTINGS);
+  const [settings, setSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('upcomm_portal_branding');
+      const parsed = cached ? JSON.parse(cached) : {};
+      return {
+        ...INITIAL_SETTINGS,
+        portal_name: parsed.portal_name || INITIAL_SETTINGS.app_name || 'UPCOMM',
+        sidebar_logo_url: parsed.sidebar_logo_url || '/logo.png',
+        ...parsed,
+      };
+    } catch (e) {
+      return {
+        ...INITIAL_SETTINGS,
+        portal_name: INITIAL_SETTINGS.app_name || 'UPCOMM',
+        sidebar_logo_url: '/logo.png',
+      };
+    }
+  });
   const [permissions, setPermissions] = useState(INITIAL_PERMISSIONS);
   const [integrations, setIntegrations] = useState(INITIAL_INTEGRATIONS);
+
+  useEffect(() => {
+    const portalName = settings.portal_name || 'UPCOMM';
+    if (!document.title.includes(portalName)) {
+      document.title = `${portalName} - Task Management Portal`;
+    }
+  }, [settings.portal_name]);
 
   // Dedicated state for Monthly Targets & KPIs (isolated from normal company tasks)
   const [monthlyTargets, setMonthlyTargets] = useState(() => {
@@ -336,6 +360,7 @@ export function AppDataProvider({ children }) {
         supabase.from('conversations').select('*').order('updated_at', { ascending: false }),
         supabase.from('conversation_participants').select('*'),
         supabase.from('messages').select('*').order('created_at', { ascending: true }),
+        supabase.from('app_settings').select('*').eq('id', 'app-settings-main').maybeSingle(),
       ];
 
       if (currentUser?.id) {
@@ -370,6 +395,7 @@ export function AppDataProvider({ children }) {
         conversationsRes,
         participantsRes,
         messagesRes,
+        settingsRes,
         pTasksRes,
         readStateRes,
       ] = results;
@@ -391,6 +417,21 @@ export function AppDataProvider({ children }) {
       if (!compReqsRes.error && compReqsRes.data) setCompletionRequests(compReqsRes.data);
       if (!reportsRes.error && reportsRes.data) setReports(reportsRes.data);
       if (!activityRes.error && activityRes.data && activityRes.data.length > 0) setActivityLogs(activityRes.data);
+      if (settingsRes && !settingsRes.error && settingsRes.data) {
+        const portalSettings = {
+          ...INITIAL_SETTINGS,
+          ...settingsRes.data,
+          portal_name: settingsRes.data.portal_name || settingsRes.data.app_name || 'UPCOMM',
+          sidebar_logo_url: settingsRes.data.sidebar_logo_url || '/logo.png',
+        };
+        setSettings(portalSettings);
+        try {
+          localStorage.setItem('upcomm_portal_branding', JSON.stringify({
+            portal_name: portalSettings.portal_name,
+            sidebar_logo_url: portalSettings.sidebar_logo_url,
+          }));
+        } catch (e) {}
+      }
       if (monthlyTargetsRes && !monthlyTargetsRes.error && monthlyTargetsRes.data && monthlyTargetsRes.data.length > 0) {
         setMonthlyTargets(monthlyTargetsRes.data);
       }
@@ -808,6 +849,30 @@ export function AppDataProvider({ children }) {
                   )
               )
             );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_settings' },
+        (payload) => {
+          if (payload.new) {
+            const incoming = payload.new;
+            setSettings((prev) => {
+              const merged = {
+                ...prev,
+                ...incoming,
+                portal_name: incoming.portal_name || incoming.app_name || prev.portal_name || 'UPCOMM',
+                sidebar_logo_url: incoming.sidebar_logo_url || prev.sidebar_logo_url || '/logo.png',
+              };
+              try {
+                localStorage.setItem('upcomm_portal_branding', JSON.stringify({
+                  portal_name: merged.portal_name,
+                  sidebar_logo_url: merged.sidebar_logo_url,
+                }));
+              } catch (e) {}
+              return merged;
+            });
           }
         }
       )
@@ -1930,6 +1995,116 @@ export function AppDataProvider({ children }) {
       logActivity('SETTINGS_UPDATED', 'app_settings', 'global', { newSettings });
       return updated;
     });
+  };
+
+  const updateSoftwareSettings = async ({ portal_name, logoFile, removeLogo = false, onUploadProgress }) => {
+    let finalLogoUrl = settings.sidebar_logo_url || '/logo.png';
+    let finalLogoPath = settings.sidebar_logo_path || null;
+
+    if (removeLogo) {
+      finalLogoUrl = '/logo.png';
+      finalLogoPath = null;
+    } else if (logoFile) {
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+      if (!allowedTypes.includes(logoFile.type)) {
+        throw new Error('Invalid file type. Only PNG, JPG, and WebP images are allowed.');
+      }
+      if (logoFile.size > 2 * 1024 * 1024) {
+        throw new Error('File size exceeds the 2MB limit.');
+      }
+
+      if (onUploadProgress) onUploadProgress(15);
+      const fileExt = logoFile.name.split('.').pop() || 'png';
+      const cleanFileName = `logo-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+      const filePath = `logos/${cleanFileName}`;
+
+      if (!isSupabaseConfigured || !supabase) {
+        finalLogoUrl = URL.createObjectURL(logoFile);
+        finalLogoPath = filePath;
+        if (onUploadProgress) onUploadProgress(100);
+      } else {
+        if (onUploadProgress) onUploadProgress(35);
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('portal-branding')
+          .upload(filePath, logoFile, {
+            cacheControl: '3600',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          throw new Error(uploadError.message || 'Failed to upload logo.');
+        }
+
+        if (onUploadProgress) onUploadProgress(75);
+        const { data: publicUrlData } = supabase.storage
+          .from('portal-branding')
+          .getPublicUrl(filePath);
+
+        finalLogoUrl = publicUrlData?.publicUrl || filePath;
+        finalLogoPath = filePath;
+        if (onUploadProgress) onUploadProgress(90);
+      }
+    }
+
+    const cleanPortalName = portal_name !== undefined ? portal_name.trim() : (settings.portal_name || 'UPCOMM');
+
+    const payload = {
+      id: 'app-settings-main',
+      portal_name: cleanPortalName || 'UPCOMM',
+      app_name: cleanPortalName || 'UPCOMM Solutions Task Manager',
+      sidebar_logo_url: finalLogoUrl,
+      sidebar_logo_path: finalLogoPath,
+      updated_by: currentUserRef.current?.id || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      const { data: upsertData, error: upsertError } = await supabase
+        .from('app_settings')
+        .upsert(payload)
+        .select()
+        .single();
+
+      if (upsertError) {
+        console.error('Database update error for software settings:', upsertError);
+        throw new Error(upsertError.message || 'Failed to save software settings to cloud database.');
+      }
+
+      const merged = { ...settings, ...upsertData };
+      setSettings(merged);
+      try {
+        localStorage.setItem('upcomm_portal_branding', JSON.stringify({
+          portal_name: merged.portal_name,
+          sidebar_logo_url: merged.sidebar_logo_url,
+          sidebar_logo_path: merged.sidebar_logo_path,
+        }));
+      } catch (e) {}
+
+      logActivity('SOFTWARE_SETTINGS_UPDATED', 'app_settings', 'app-settings-main', {
+        portal_name: merged.portal_name,
+        sidebar_logo_url: merged.sidebar_logo_url,
+      });
+
+      if (onUploadProgress) onUploadProgress(100);
+      return { success: true, settings: merged };
+    } else {
+      const merged = { ...settings, ...payload };
+      setSettings(merged);
+      try {
+        localStorage.setItem('upcomm_portal_branding', JSON.stringify({
+          portal_name: merged.portal_name,
+          sidebar_logo_url: merged.sidebar_logo_url,
+          sidebar_logo_path: merged.sidebar_logo_path,
+        }));
+      } catch (e) {}
+      logActivity('SOFTWARE_SETTINGS_UPDATED', 'app_settings', 'app-settings-main', {
+        portal_name: merged.portal_name,
+        sidebar_logo_url: merged.sidebar_logo_url,
+      });
+      if (onUploadProgress) onUploadProgress(100);
+      return { success: true, settings: merged };
+    }
   };
 
   const toggleIntegration = (intId) => {
@@ -3668,6 +3843,7 @@ export function AppDataProvider({ children }) {
     updateUserProfile,
     togglePermission,
     updateSettings,
+    updateSoftwareSettings,
     toggleIntegration,
     logActivity,
     uploadReportFile,

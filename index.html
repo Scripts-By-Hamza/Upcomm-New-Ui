@@ -17,6 +17,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Pre-paint Theme & Branding Init to Eliminate Flash of Unstyled Content -->
+    <script>
+      (function() {
+        try {
+          var userId = localStorage.getItem('upcomm_logged_in_user_id');
+          var theme = null;
+          if (userId) {
+            theme = localStorage.getItem('upcomm_theme_' + userId);
+          }
+          if (!theme) {
+            theme = localStorage.getItem('upcomm_theme');
+          }
+          
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+
+          var branding = localStorage.getItem('upcomm_portal_branding');
+          if (branding) {
+            var parsed = JSON.parse(branding);
+            if (parsed && parsed.portal_name) {
+              document.title = parsed.portal_name + ' - Task Management Portal';
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-[#F4F6FA] text-slate-900 font-sans antialiased selection:bg-brand-600 selection:text-white">
     <div id="root"></div>

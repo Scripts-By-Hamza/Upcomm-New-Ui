@@ -42,11 +42,13 @@ import {
   Target,
   MessageSquare,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 
 export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse, onNavItemClick, onOpenCommandPalette }) {
   const { currentUser, users = [], logout } = useAuth();
   const {
+    settings,
     deleteRequests = [],
     completionRequests = [],
     tasks = [],
@@ -251,13 +253,16 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
       <div className="h-16 px-4 flex items-center justify-between border-b border-[#E5E7EB] flex-shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <img
-            src="/logo.png"
-            alt="UPCOMM"
+            src={settings?.sidebar_logo_url || '/logo.png'}
+            alt={settings?.portal_name || 'UPCOMM'}
             className="w-7 h-7 object-contain flex-shrink-0 rounded-[6px]"
+            onError={(e) => {
+              e.currentTarget.src = '/logo.png';
+            }}
           />
           {!isCollapsed && (
             <span className="font-bold text-[15px] tracking-tight text-[#18181B] truncate">
-              UPCOMM
+              {settings?.portal_name || 'UPCOMM'}
             </span>
           )}
         </div>
@@ -660,6 +665,18 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
             >
               <UserCheck className="w-3.5 h-3.5 text-[#71717A]" />
               <span>My Profile</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setUserMenuOpen(false);
+                navigate('/settings');
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[12.5px] text-[#52525B] hover:text-[#18181B] hover:bg-[#F5F6F8] transition-colors cursor-pointer text-left"
+            >
+              <Settings className="w-3.5 h-3.5 text-[#71717A]" />
+              <span>Settings</span>
             </button>
 
             <div className="my-1 border-t border-[#F4F4F5]" />

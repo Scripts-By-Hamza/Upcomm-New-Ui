@@ -8,7 +8,7 @@ import { AdminDashboardKpiRow } from './AdminDashboardKpiRow';
 import { DashboardAttentionPanel } from './DashboardAttentionPanel';
 import { DashboardTodayTasks } from './DashboardTodayTasks';
 import { DashboardRecentComments } from './DashboardRecentComments';
-import { DashboardRecentActivity } from './DashboardRecentActivity';
+import { DashboardMyFocusCard } from './DashboardMyFocusCard';
 import { DashboardDepartmentOverview } from './DashboardDepartmentOverview';
 
 export function AdminDashboardView() {
@@ -260,14 +260,10 @@ export function AdminDashboardView() {
           <DashboardTodayTasks tasks={tasks} users={users} />
         </div>
 
-        {/* Right Column: Recent Comments & Recent Activity */}
+        {/* Right Column: Recent Comments & My Focus Timer */}
         <div className="space-y-5">
           <DashboardRecentComments tasks={tasks} users={users} />
-          <DashboardRecentActivity
-            activityLogs={activityLogs}
-            users={users}
-            tasks={tasks}
-          />
+          <DashboardMyFocusCard />
         </div>
       </div>
 

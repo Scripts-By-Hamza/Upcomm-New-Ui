@@ -143,6 +143,9 @@ export function Header({
     if (path === '/profile') {
       return [{ label: 'Account', to: '/dashboard' }, { label: 'Profile' }];
     }
+    if (path === '/settings' || path.startsWith('/settings')) {
+      return [{ label: 'Workspace', to: '/dashboard' }, { label: 'Settings' }];
+    }
 
     return [{ label: 'Home', to: '/dashboard' }, { label: 'Dashboard' }];
   }, [location.pathname, currentUser?.role, departments, location.search]);

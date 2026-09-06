@@ -430,6 +430,96 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateCurrentUserPreferences = async ({ theme, task_default_view }) => {
+    if (!currentUserId) throw new Error('No user is currently logged in.');
+
+    const validThemes = ['light', 'dark'];
+    const validViews = ['list', 'board', 'calendar'];
+
+    const prevUser = currentUser;
+    const prevTheme = prevUser?.theme || 'light';
+    const prevView = prevUser?.task_default_view || 'list';
+
+    const updates = {};
+    if (theme !== undefined) {
+      if (!validThemes.includes(theme)) throw new Error(`Invalid theme: ${theme}`);
+      updates.theme = theme;
+    }
+    if (task_default_view !== undefined) {
+      if (!validViews.includes(task_default_view)) throw new Error(`Invalid task default view: ${task_default_view}`);
+      updates.task_default_view = task_default_view;
+    }
+
+    if (Object.keys(updates).length === 0) return { success: true };
+
+    // Apply immediate local state & account-scoped cache
+    if (updates.theme) {
+      try {
+        localStorage.setItem(`upcomm_theme_${currentUserId}`, updates.theme);
+      } catch (e) {}
+      if (updates.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    }
+    if (updates.task_default_view) {
+      try {
+        localStorage.setItem(`upcomm_task_default_view_${currentUserId}`, updates.task_default_view);
+      } catch (e) {}
+    }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === currentUserId ? { ...u, ...updates } : u))
+    );
+    setCachedUser((prev) => (prev ? { ...prev, ...updates } : prev));
+
+    // Persist to Supabase users table
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .update(updates)
+          .eq('id', currentUserId);
+
+        if (error) {
+          console.warn('Supabase user preferences update warning:', error);
+          // If not schema cache error, rollback
+          if (error.code !== '42703' && error.code !== 'PGRST204') {
+            if (updates.theme) {
+              try {
+                localStorage.setItem(`upcomm_theme_${currentUserId}`, prevTheme);
+              } catch (e) {}
+              if (prevTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.documentElement.setAttribute('data-theme', 'dark');
+              } else {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.setAttribute('data-theme', 'light');
+              }
+            }
+            if (updates.task_default_view) {
+              try {
+                localStorage.setItem(`upcomm_task_default_view_${currentUserId}`, prevView);
+              } catch (e) {}
+            }
+            setUsers((prev) =>
+              prev.map((u) => (u.id === currentUserId ? { ...u, theme: prevTheme, task_default_view: prevView } : u))
+            );
+            throw new Error(error.message || 'Failed to save preferences to database.');
+          }
+        }
+      } catch (err) {
+        console.error('User preference update exception:', err);
+        throw err;
+      }
+    }
+
+    return { success: true };
+  };
+
   const value = {
     currentUser,
     currentUserId,
@@ -445,6 +535,7 @@ export function AuthProvider({ children }) {
     createUser,
     updateUser,
     updateUserPermissions,
+    updateCurrentUserPreferences,
     resetUserPermissions,
     deleteUser,
     setUsers,

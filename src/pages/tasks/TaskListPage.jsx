@@ -192,7 +192,13 @@ export function TaskListPage({ filterType: propFilterType }) {
     : (isFiltersLocked ? (lockedFilters.sort || 'default') : 'default');
 
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
-  const activeView = searchParams.get('view') || 'list';
+  const preferredDefaultView = ['list', 'board', 'calendar'].includes(currentUser?.task_default_view)
+    ? currentUser.task_default_view
+    : 'list';
+  const queryView = searchParams.get('view');
+  const activeView = ['list', 'board', 'calendar'].includes(queryView)
+    ? queryView
+    : preferredDefaultView;
 
   const completedSubFilter = searchParams.has('completed_filter')
     ? searchParams.get('completed_filter')
@@ -314,9 +320,9 @@ export function TaskListPage({ filterType: propFilterType }) {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (val === 'list' || !val) {
+        if (val === preferredDefaultView) {
           next.delete('view');
-        } else {
+        } else if (val) {
           next.set('view', val);
         }
         next.delete('page');

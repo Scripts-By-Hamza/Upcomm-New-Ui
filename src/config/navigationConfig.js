@@ -11,6 +11,7 @@ import {
   Activity,
   UserCheck,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 import {
   canViewUsers,
@@ -137,6 +138,15 @@ export const NAVIGATION_ITEMS = [
     icon: UserCheck,
     section: 'Account',
     keywords: ['profile', 'account', 'password', 'avatar', 'my profile', 'me'],
+    isAllowed: () => true,
+  },
+  {
+    id: 'nav-settings',
+    label: 'Settings',
+    to: '/settings',
+    icon: Settings,
+    section: 'Account',
+    keywords: ['settings', 'preferences', 'theme', 'dark mode', 'branding', 'logo', 'portal name', 'default view', 'appearance'],
     isAllowed: () => true,
   },
 ];

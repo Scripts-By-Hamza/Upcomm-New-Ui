@@ -491,3 +491,14 @@ export function canUseAiAssistant(user) {
   return isAdmin && user.is_active !== false;
 }
 
+/**
+ * Global Software Settings authorization helper (Admin & IT Support Admin only)
+ */
+export function canManageSoftwareSettings(user) {
+  if (!user || user.is_active === false) return false;
+  const role = (user.role || '').toLowerCase();
+  if (role === 'admin' || role === 'it_support_admin') return true;
+  return hasPermission(user, 'settings.manage');
+}
+
+
