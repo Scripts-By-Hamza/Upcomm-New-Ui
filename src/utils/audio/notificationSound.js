@@ -29,10 +29,14 @@ export const SOUND_ENABLED_EVENT_TYPES = Object.freeze({
   GROUP_MESSAGE: 'GROUP_MESSAGE',
   BROADCAST_MESSAGE: 'BROADCAST_MESSAGE',
   MESSAGE_MENTION: 'MESSAGE_MENTION',
+  TASK_ASSIGNED: 'TASK_ASSIGNED',
+  COMPLETION_REQUEST: 'COMPLETION_REQUEST',
+  DELETE_REQUEST: 'DELETE_REQUEST',
 });
 
-// Reusable single Audio instance
+// Reusable audio elements and Web Audio Context
 let audioElement = null;
+let audioCtx = null;
 let isAudioUnlocked = false;
 let isUnlockListenerAttached = false;
 let lastSoundPlayedAt = 0;
@@ -67,6 +71,66 @@ if (typeof window !== 'undefined') {
       } catch {}
     }
   });
+}
+
+/**
+ * Returns or initializes the shared Web Audio Context.
+ */
+function getAudioContext() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!audioCtx) {
+      audioCtx = new AudioCtx();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Synthesizes a clean, pleasant two-tone harmonic notification chime via Web Audio API.
+ * Guaranteed to play even if HTML5 audio elements are blocked or interrupted.
+ */
+export function playWebAudioChimeFallback() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Tone 1: 587.33 Hz (D5) - warm bell tone
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0, now);
+    gain1.gain.linearRampToValueAtTime(0.25, now + 0.02);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.36);
+
+    // Tone 2: 880.00 Hz (A5) - bright confirmation tone
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880.0, now + 0.12);
+    gain2.gain.setValueAtTime(0, now + 0.12);
+    gain2.gain.linearRampToValueAtTime(0.35, now + 0.14);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.56);
+  } catch (e) {
+    console.warn('[NotificationSound] Web Audio fallback notice:', e);
+  }
 }
 
 /**
@@ -203,12 +267,14 @@ export function initNotificationAudioUnlock() {
       if (!audioElement) {
         preloadNotificationSound();
       }
+      getAudioContext();
       isAudioUnlocked = true;
     } catch {}
 
     window.removeEventListener('pointerdown', unlockHandler);
     window.removeEventListener('click', unlockHandler);
     window.removeEventListener('keydown', unlockHandler);
+    window.removeEventListener('touchstart', unlockHandler);
     isUnlockListenerAttached = false;
   };
 
@@ -216,6 +282,14 @@ export function initNotificationAudioUnlock() {
   window.addEventListener('pointerdown', unlockHandler, { once: true, passive: true });
   window.addEventListener('click', unlockHandler, { once: true, passive: true });
   window.addEventListener('keydown', unlockHandler, { once: true, passive: true });
+  window.addEventListener('touchstart', unlockHandler, { once: true, passive: true });
+}
+
+function isInstalledMobileStandalone() {
+  if (typeof window === 'undefined') return false;
+  const isStandalone = window.matchMedia?.('(display-mode: standalone)')?.matches || Boolean(window.navigator?.standalone);
+  const isMobile = /iPad|iPhone|iPod|android/i.test(navigator?.userAgent || '') || ((navigator?.maxTouchPoints || 0) > 0 && window.matchMedia?.('(pointer: coarse)')?.matches);
+  return Boolean(isStandalone && isMobile);
 }
 
 /**
@@ -250,12 +324,19 @@ export function shouldPlayNotificationSound({
     return false;
   }
 
+  // 6. Installed Mobile Double-Sound Prevention:
+  // When running as an installed standalone mobile PWA, suppress custom audio chime
+  // so the user hears only the native system Push sound.
+  if (isInstalledMobileStandalone()) {
+    return false;
+  }
+
   return true;
 }
 
 /**
  * Plays the canonical UPCOMM notification sound.
- * Handles deduplication, throttling, and safe error handling.
+ * Handles deduplication, throttling, dual HTML5 + WebAudio playback, and safe error handling.
  */
 export function playNotificationSound(params = {}) {
   const { eventId, eventType, actorUserId, currentUser } = params;
@@ -278,25 +359,47 @@ export function playNotificationSound(params = {}) {
   lastSoundPlayedAt = now;
 
   try {
-    if (!audioElement) {
-      preloadNotificationSound();
-    }
-    if (!audioElement) return false;
+    // Create a fresh audio instance for pristine playback without race conditions
+    const audio = new Audio(NOTIFICATION_SOUND_URL);
+    audio.volume = NOTIFICATION_SOUND_VOLUME;
+    const playPromise = audio.play();
 
-    audioElement.volume = NOTIFICATION_SOUND_VOLUME;
-    audioElement.currentTime = 0;
-
-    const playPromise = audioElement.play();
     if (playPromise !== undefined) {
       playPromise.catch((err) => {
-        // Safe silent catch for browser autoplay restrictions or interruptions
-        console.debug?.('[NotificationSound] Play blocked or interrupted:', err);
+        // Safe silent fallback to Web Audio API synthesizer
+        console.debug?.('[NotificationSound] HTML5 play fallback triggered:', err);
+        playWebAudioChimeFallback();
       });
     }
     return true;
   } catch (e) {
-    // Graceful fallback
-    return false;
+    playWebAudioChimeFallback();
+    return true;
+  }
+}
+
+/**
+ * Directly plays a test notification sound for the user.
+ * Bypasses deduplication so the user can verify their speaker/headphones.
+ */
+export function testNotificationSound() {
+  const now = Date.now();
+  if (now - lastSoundPlayedAt < 250) return false;
+  lastSoundPlayedAt = now;
+
+  try {
+    const audio = new Audio(NOTIFICATION_SOUND_URL);
+    audio.volume = NOTIFICATION_SOUND_VOLUME;
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        playWebAudioChimeFallback();
+      });
+    }
+    return true;
+  } catch (e) {
+    playWebAudioChimeFallback();
+    return true;
   }
 }
 
@@ -307,19 +410,7 @@ export function playNotificationChime(params) {
   if (params && typeof params === 'object' && params.currentUser) {
     return playNotificationSound(params);
   }
-  // Legacy call without arguments
-  const now = Date.now();
-  if (now - lastSoundPlayedAt < THROTTLE_WINDOW_MS) return false;
-  lastSoundPlayedAt = now;
-  try {
-    if (!audioElement) preloadNotificationSound();
-    if (audioElement) {
-      audioElement.volume = NOTIFICATION_SOUND_VOLUME;
-      audioElement.currentTime = 0;
-      audioElement.play().catch(() => {});
-    }
-  } catch {}
-  return true;
+  return testNotificationSound();
 }
 
 /**

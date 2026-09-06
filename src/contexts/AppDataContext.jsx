@@ -280,6 +280,11 @@ export function AppDataProvider({ children }) {
     conversationParticipantsRef.current = conversationParticipants;
   }, [conversationParticipants]);
 
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   const realtimeReadyRef = useRef(false);
 
   // Initialize centralized notification audio preload & unlock on authentication
@@ -392,14 +397,27 @@ export function AppDataProvider({ children }) {
       if (monthlyCommentsRes && !monthlyCommentsRes.error && monthlyCommentsRes.data && monthlyCommentsRes.data.length > 0) {
         setMonthlyTargetComments(monthlyCommentsRes.data);
       }
-      if (conversationsRes && !conversationsRes.error && conversationsRes.data) {
-        setConversations(conversationsRes.data);
+      if (conversationsRes && !conversationsRes.error && Array.isArray(conversationsRes.data)) {
+        setConversations((prev) => {
+          const serverIds = new Set(conversationsRes.data.map((c) => c.id));
+          const localOnly = (prev || []).filter((c) => !serverIds.has(c.id));
+          return [...conversationsRes.data, ...localOnly];
+        });
       }
-      if (participantsRes && !participantsRes.error && participantsRes.data) {
-        setConversationParticipants(participantsRes.data);
+      if (participantsRes && !participantsRes.error && Array.isArray(participantsRes.data)) {
+        setConversationParticipants((prev) => {
+          const keySet = new Set(participantsRes.data.map((p) => `${p.conversation_id}_${p.user_id}`));
+          const localOnly = (prev || []).filter((p) => !keySet.has(`${p.conversation_id}_${p.user_id}`));
+          return [...participantsRes.data, ...localOnly];
+        });
       }
-      if (messagesRes && !messagesRes.error && messagesRes.data) {
-        setMessages(messagesRes.data);
+      if (messagesRes && !messagesRes.error && Array.isArray(messagesRes.data)) {
+        setMessages((prev) => {
+          const serverIds = new Set(messagesRes.data.map((m) => m.id));
+          const localOnly = (prev || []).filter((m) => !serverIds.has(m.id));
+          const merged = [...messagesRes.data, ...localOnly];
+          return merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        });
       }
       if (pTasksRes && !pTasksRes.error && pTasksRes.data) {
         setPersonalTasks(pTasksRes.data);
@@ -646,32 +664,27 @@ export function AppDataProvider({ children }) {
             const newMsg = payload.new;
 
             // Centralized notification sound for incoming private messages
-            if (realtimeReadyRef.current && currentUserRef.current?.id) {
+            if (currentUserRef.current?.id) {
               const currentUid = String(currentUserRef.current.id);
               const senderUid = newMsg.sender_id ? String(newMsg.sender_id) : null;
 
               if (senderUid && senderUid !== currentUid) {
                 const convId = String(newMsg.conversation_id);
-                const isParticipant = (conversationParticipantsRef.current || []).some(
-                  (p) => String(p.conversation_id) === convId && String(p.user_id) === currentUid
-                );
                 const targetConv = (conversationsRef.current || []).find((c) => String(c.id) === convId);
 
-                if (isParticipant || targetConv) {
-                  let eventType = SOUND_ENABLED_EVENT_TYPES.DIRECT_MESSAGE;
-                  if (newMsg.source_type === 'broadcast') {
-                    eventType = SOUND_ENABLED_EVENT_TYPES.BROADCAST_MESSAGE;
-                  } else if (targetConv?.type === 'group') {
-                    eventType = SOUND_ENABLED_EVENT_TYPES.GROUP_MESSAGE;
-                  }
-
-                  playNotificationSound({
-                    eventId: `msg-${newMsg.id}`,
-                    eventType,
-                    actorUserId: senderUid,
-                    currentUser: currentUserRef.current,
-                  });
+                let eventType = SOUND_ENABLED_EVENT_TYPES.DIRECT_MESSAGE;
+                if (newMsg.source_type === 'broadcast') {
+                  eventType = SOUND_ENABLED_EVENT_TYPES.BROADCAST_MESSAGE;
+                } else if (targetConv?.type === 'group') {
+                  eventType = SOUND_ENABLED_EVENT_TYPES.GROUP_MESSAGE;
                 }
+
+                playNotificationSound({
+                  eventId: `msg-${newMsg.id}`,
+                  eventType,
+                  actorUserId: senderUid,
+                  currentUser: currentUserRef.current,
+                });
               }
             }
 
@@ -894,7 +907,34 @@ export function AppDataProvider({ children }) {
           });
         }
 
-        if (msgsRes.data && !msgsRes.error) {
+        if (msgsRes.data && !msgsRes.error && Array.isArray(msgsRes.data)) {
+          const currentUid = currentUserRef.current?.id ? String(currentUserRef.current.id) : null;
+
+          if (realtimeReadyRef.current && currentUid) {
+            const currentKnownIds = new Set((messagesRef.current || []).map((m) => m.id));
+            for (const m of msgsRes.data) {
+              if (!currentKnownIds.has(m.id)) {
+                const senderUid = m.sender_id ? String(m.sender_id) : null;
+                if (senderUid && senderUid !== currentUid) {
+                  const targetConv = (conversationsRef.current || []).find((c) => String(c.id) === String(m.conversation_id));
+                  let eventType = SOUND_ENABLED_EVENT_TYPES.DIRECT_MESSAGE;
+                  if (m.source_type === 'broadcast') {
+                    eventType = SOUND_ENABLED_EVENT_TYPES.BROADCAST_MESSAGE;
+                  } else if (targetConv?.type === 'group') {
+                    eventType = SOUND_ENABLED_EVENT_TYPES.GROUP_MESSAGE;
+                  }
+
+                  playNotificationSound({
+                    eventId: `msg-${m.id}`,
+                    eventType,
+                    actorUserId: senderUid,
+                    currentUser: currentUserRef.current,
+                  });
+                }
+              }
+            }
+          }
+
           setMessages((prev) => {
             const serverIds = new Set(msgsRes.data.map((m) => m.id));
             const localOnly = prev.filter((m) => !serverIds.has(m.id));
@@ -1510,6 +1550,17 @@ export function AppDataProvider({ children }) {
           .update({ status: newStatus, reviewed_by: currentUser?.id, reviewed_at: nowIso, updated_at: nowIso })
           .eq('id', requestId);
         if (error) console.error('Supabase review completion request error:', error);
+
+        if (currentUser?.id) {
+          supabase
+            .from('push_notifications')
+            .update({ read_at: nowIso })
+            .eq('recipient_user_id', String(currentUser.id))
+            .eq('request_id', requestId)
+            .is('read_at', null)
+            .then(() => {})
+            .catch(() => {});
+        }
       } catch (err) {
         console.error('Supabase review completion request exception:', err);
       }
@@ -1587,6 +1638,17 @@ export function AppDataProvider({ children }) {
           .eq('id', requestId);
         if (error) {
           console.error('Supabase review delete request error:', error);
+        }
+
+        if (currentUser?.id) {
+          supabase
+            .from('push_notifications')
+            .update({ read_at: nowIso })
+            .eq('recipient_user_id', String(currentUser.id))
+            .eq('request_id', requestId)
+            .is('read_at', null)
+            .then(() => {})
+            .catch(() => {});
         }
       } catch (err) {
         console.error('Supabase review delete request exception:', err);
@@ -2863,6 +2925,26 @@ export function AppDataProvider({ children }) {
       });
 
       if (directConv) {
+        if (isSupabaseConfigured && supabase) {
+          // Asynchronously ensure it exists in Supabase
+          supabase
+            .from('conversations')
+            .upsert(
+              [
+                {
+                  id: directConv.id,
+                  type: directConv.type || 'direct',
+                  name: directConv.name || null,
+                  created_by: directConv.created_by || currentUid,
+                  created_at: directConv.created_at || nowIso,
+                  updated_at: nowIso,
+                },
+              ],
+              { onConflict: 'id' }
+            )
+            .then(() => {})
+            .catch(() => {});
+        }
         return directConv;
       }
 
@@ -2928,9 +3010,9 @@ export function AppDataProvider({ children }) {
 
       if (isSupabaseConfigured && supabase) {
         try {
-          const { error: convErr } = await supabase.from('conversations').insert([directConv]);
+          const { error: convErr } = await supabase.from('conversations').upsert([directConv], { onConflict: 'id' });
           if (convErr) console.warn('Supabase direct conversation insert notice:', convErr.message);
-          const { error: partErr } = await supabase.from('conversation_participants').insert([p1, p2]);
+          const { error: partErr } = await supabase.from('conversation_participants').upsert([p1, p2], { onConflict: 'conversation_id,user_id' });
           if (partErr) console.warn('Supabase direct participant insert notice:', partErr.message);
         } catch (e) {
           console.warn('Supabase direct conversation create fallback:', e);
@@ -2985,6 +3067,7 @@ export function AppDataProvider({ children }) {
 
       if (isSupabaseConfigured && supabase) {
         try {
+          await supabase.from('conversations').upsert([directConv], { onConflict: 'id' });
           const { error: msgErr } = await supabase.from('messages').insert([newMsg]);
           if (msgErr) console.warn('Supabase message insert notice:', msgErr.message);
           await supabase
@@ -2993,8 +3076,10 @@ export function AppDataProvider({ children }) {
             .eq('id', directConv.id);
           await supabase
             .from('conversation_participants')
-            .update({ last_read_at: nowIso })
-            .match({ conversation_id: directConv.id, user_id: currentUid });
+            .upsert(
+              { conversation_id: directConv.id, user_id: currentUid, last_read_at: nowIso, joined_at: nowIso },
+              { onConflict: 'conversation_id,user_id' }
+            );
         } catch (e) {
           console.warn('Supabase message insert fallback:', e);
         }
@@ -3232,6 +3317,22 @@ export function AppDataProvider({ children }) {
 
       if (isSupabaseConfigured && supabase) {
         try {
+          if (targetConv) {
+            await supabase.from('conversations').upsert(
+              [
+                {
+                  id: targetConv.id,
+                  type: targetConv.type || 'direct',
+                  name: targetConv.name || null,
+                  created_by: targetConv.created_by || currentUid,
+                  created_at: targetConv.created_at || nowIso,
+                  updated_at: nowIso,
+                },
+              ],
+              { onConflict: 'id' }
+            );
+          }
+
           const { error: mErr } = await supabase.from('messages').insert([newMsg]);
           if (mErr) {
             console.warn('Supabase send message notice:', mErr.message);
@@ -3247,8 +3348,15 @@ export function AppDataProvider({ children }) {
             .eq('id', convId);
           await supabase
             .from('conversation_participants')
-            .update({ last_read_at: nowIso })
-            .match({ conversation_id: convId, user_id: currentUid });
+            .upsert(
+              {
+                conversation_id: convId,
+                user_id: currentUid,
+                last_read_at: nowIso,
+                joined_at: nowIso,
+              },
+              { onConflict: 'conversation_id,user_id' }
+            );
         } catch (e) {
           console.warn('Supabase send message fallback:', e);
         }
@@ -3310,6 +3418,16 @@ export function AppDataProvider({ children }) {
                 .catch(() => {});
             }
           })
+          .catch(() => {});
+
+        // Synchronize Push Notifications Outbox read status
+        supabase
+          .from('push_notifications')
+          .update({ read_at: nowIso })
+          .eq('recipient_user_id', currentUid)
+          .eq('conversation_id', convId)
+          .is('read_at', null)
+          .then(() => {})
           .catch(() => {});
       }
     },

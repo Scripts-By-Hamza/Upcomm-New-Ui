@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, CheckCircle2, Loader2 } from 'lucide-react';
+import { Bell, CheckCircle2, Loader2, Volume2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { isNotificationSoundEnabled, setNotificationSoundEnabled } from '../../utils/audio/notificationSound';
+import { isNotificationSoundEnabled, setNotificationSoundEnabled, testNotificationSound } from '../../utils/audio/notificationSound';
 
 export function NotificationSettingsPanel() {
   const { currentUser } = useAuth();
@@ -179,7 +179,21 @@ export function NotificationSettingsPanel() {
           {/* Item 5 - Centralized Notification Sound */}
           <div className="pt-4 flex items-center justify-between gap-4">
             <div>
-              <h4 className="text-[13.5px] font-medium text-[#18181B]">Notification Sound</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-[13.5px] font-medium text-[#18181B]">Notification Sound</h4>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    testNotificationSound();
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-[#059669] bg-emerald-50 hover:bg-emerald-100 rounded-[5px] transition-colors cursor-pointer border border-emerald-200"
+                  title="Test notification sound"
+                >
+                  <Volume2 className="w-3 h-3" />
+                  <span>Test</span>
+                </button>
+              </div>
               <p className="text-[12px] text-[#71717A] mt-0.5">Play a sound when you receive a new task comment or message.</p>
             </div>
             <button

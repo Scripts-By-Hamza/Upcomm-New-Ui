@@ -13,7 +13,25 @@ import {
   Loader2,
   Lock,
   RotateCcw,
+  Bell,
+  Smartphone,
+  AlertCircle,
 } from 'lucide-react';
+import {
+  isStandalone,
+  isMobileDevice,
+  isPushSupported,
+  isSupportedStandaloneMobile,
+  getNotificationPermission,
+} from '../../lib/pwa/pwaEnvironment';
+import {
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+  getCurrentPushSubscription,
+} from '../../lib/pwa/pushSubscription';
+import {
+  getUserPushPreference,
+} from '../../lib/pwa/pushPreferences';
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
@@ -42,6 +60,104 @@ export function ProfilePage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
   const [uploadError, setUploadError] = useState('');
+
+  // Push Notification States
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [isTogglingPush, setIsTogglingPush] = useState(false);
+  const [pushFeedback, setPushFeedback] = useState('');
+  const [pushEnvStatus, setPushEnvStatus] = useState('desktop'); // 'enabled' | 'off' | 'install_required' | 'desktop' | 'blocked' | 'unsupported'
+
+  // Load push notification status on profile load
+  useEffect(() => {
+    let isMounted = true;
+
+    async function evaluatePushStatus() {
+      if (!isPushSupported()) {
+        if (isMounted) setPushEnvStatus('unsupported');
+        return;
+      }
+
+      if (!isMobileDevice()) {
+        if (isMounted) setPushEnvStatus('desktop');
+        return;
+      }
+
+      if (!isStandalone()) {
+        if (isMounted) setPushEnvStatus('install_required');
+        return;
+      }
+
+      const permission = getNotificationPermission();
+      if (permission === 'denied') {
+        if (isMounted) {
+          setPushEnvStatus('blocked');
+          setPushEnabled(false);
+        }
+        return;
+      }
+
+      if (currentUser?.id) {
+        try {
+          const pref = await getUserPushPreference(currentUser.id);
+          const sub = await getCurrentPushSubscription();
+          if (isMounted) {
+            const active = Boolean(pref && sub);
+            setPushEnabled(active);
+            setPushEnvStatus(active ? 'enabled' : 'off');
+          }
+        } catch (e) {
+          if (isMounted) setPushEnvStatus('off');
+        }
+      }
+    }
+
+    evaluatePushStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id]);
+
+  const handleToggleMobilePush = async () => {
+    if (!currentUser?.id || isTogglingPush) return;
+
+    if (pushEnvStatus === 'install_required' || pushEnvStatus === 'desktop' || pushEnvStatus === 'unsupported') {
+      return;
+    }
+
+    setIsTogglingPush(true);
+    setPushFeedback('');
+
+    if (pushEnabled) {
+      // Turn OFF
+      const res = await unsubscribeFromPushNotifications(currentUser.id);
+      if (res.success) {
+        setPushEnabled(false);
+        setPushEnvStatus('off');
+        setPushFeedback('Mobile push notifications disabled.');
+        setTimeout(() => setPushFeedback(''), 3000);
+      }
+    } else {
+      // Turn ON
+      const res = await subscribeToPushNotifications(currentUser.id);
+      if (res.success) {
+        setPushEnabled(true);
+        setPushEnvStatus('enabled');
+        setPushFeedback('Mobile push notifications enabled for this device.');
+        setTimeout(() => setPushFeedback(''), 3000);
+      } else {
+        if (res.permission === 'denied') {
+          setPushEnvStatus('blocked');
+          setPushEnabled(false);
+          setPushFeedback('Permission was blocked in browser settings.');
+        } else {
+          setPushFeedback(res.error || 'Failed to enable push notifications.');
+        }
+        setTimeout(() => setPushFeedback(''), 4000);
+      }
+    }
+    setIsTogglingPush(false);
+  };
 
   // Sync initial state when currentUser changes
   useEffect(() => {
@@ -559,6 +675,115 @@ export function ProfilePage() {
               Change Password
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* 5. Mobile Notifications Surface */}
+      <div className="bg-white border border-[#E5E7EB] rounded-[10px] p-6 shadow-none">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-[#71717A] uppercase tracking-wider">
+              MOBILE NOTIFICATIONS
+            </div>
+            {/* Dynamic Status Badge */}
+            {pushEnvStatus === 'enabled' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11.5px] font-medium text-[#059669] bg-emerald-50 border border-emerald-200 rounded-[6px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
+                Enabled on this device
+              </span>
+            )}
+            {pushEnvStatus === 'off' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11.5px] font-medium text-[#71717A] bg-[#F4F4F5] border border-[#E5E7EB] rounded-[6px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#8B8B95]" />
+                Disabled
+              </span>
+            )}
+            {pushEnvStatus === 'blocked' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11.5px] font-medium text-[#DC2626] bg-red-50 border border-red-200 rounded-[6px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
+                Blocked by device
+              </span>
+            )}
+            {pushEnvStatus === 'install_required' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11.5px] font-medium text-[#52525B] bg-[#F4F4F5] border border-[#E5E7EB] rounded-[6px]">
+                Install required
+              </span>
+            )}
+            {pushEnvStatus === 'desktop' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11.5px] font-medium text-[#52525B] bg-[#F4F4F5] border border-[#E5E7EB] rounded-[6px]">
+                Mobile PWA Only
+              </span>
+            )}
+            {pushEnvStatus === 'unsupported' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11.5px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-[6px]">
+                Unsupported
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-[8px] border border-[#E5E7EB] bg-white flex items-center justify-center flex-shrink-0">
+                <Bell className="w-5 h-5 text-[#18181B]" />
+              </div>
+              <div className="space-y-0.5 max-w-xl">
+                <h4 className="text-[13.5px] font-semibold text-[#18181B]">
+                  Mobile Push Notifications
+                </h4>
+                <p className="text-[12px] text-[#52525B] leading-relaxed">
+                  Receive alerts for messages, task comments, task assignments and approval requests even when UPCOMM is closed.
+                </p>
+                {pushEnvStatus === 'install_required' && (
+                  <p className="text-[11.5px] text-[#059669] font-medium pt-1">
+                    Install UPCOMM on this device (Chrome menu → Install App or Safari → Add to Home Screen) to enable mobile push notifications.
+                  </p>
+                )}
+                {pushEnvStatus === 'desktop' && (
+                  <p className="text-[11.5px] text-[#71717A] pt-1">
+                    Mobile Push notifications are configured from your installed mobile UPCOMM app. Desktop uses the built-in portal sound.
+                  </p>
+                )}
+                {pushEnvStatus === 'blocked' && (
+                  <p className="text-[11.5px] text-[#DC2626] font-medium pt-1">
+                    Notifications are blocked in your browser/system settings. Please enable them to receive mobile alerts.
+                  </p>
+                )}
+                {pushEnvStatus === 'unsupported' && (
+                  <p className="text-[11.5px] text-amber-600 font-medium pt-1">
+                    Mobile notifications aren't supported on this device version (iOS 16.4+ required for iPhone/iPad).
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Toggle Button for installed PWA */}
+            {(pushEnvStatus === 'enabled' || pushEnvStatus === 'off' || pushEnvStatus === 'blocked') && (
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={handleToggleMobilePush}
+                  disabled={isTogglingPush || pushEnvStatus === 'blocked'}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                    pushEnabled ? 'bg-[#059669]' : 'bg-[#E5E7EB]'
+                  }`}
+                  aria-label="Toggle mobile push notifications"
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-xs transform transition-transform ${
+                      pushEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {pushFeedback && (
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-[7px] text-[12px] text-[#065F46] font-medium flex items-center gap-2 animate-fade-in">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#059669] flex-shrink-0" />
+              <span>{pushFeedback}</span>
+            </div>
+          )}
         </div>
       </div>
 

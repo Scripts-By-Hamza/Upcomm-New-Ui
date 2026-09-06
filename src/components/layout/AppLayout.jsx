@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileDrawer } from './MobileDrawer';
 import { ChangePasswordAlert } from '../auth/ChangePasswordAlert';
+import { MobileNotificationEnableBanner } from '../notifications/MobileNotificationEnableBanner';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { CommandPalette } from '../command/CommandPalette';
@@ -12,6 +13,8 @@ import { CreateTaskDrawer } from '../tasks/create/CreateTaskDrawer';
 import { CreatePersonalTaskModal } from '../kanban/CreatePersonalTaskModal';
 import { MobileFloatingActionButton } from './MobileFloatingActionButton';
 import { useAppData } from '../../contexts/AppDataContext';
+import { registerUpcommServiceWorker } from '../../lib/pwa/serviceWorkerRegistration';
+import { initPushNavigationListener } from '../../lib/pwa/pushNavigation';
 
 export function AppLayout() {
   const { createPersonalTask } = useAppData();
@@ -44,6 +47,15 @@ export function AppLayout() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Initialize Service Worker & Push Deep-Linking Navigation
+  useEffect(() => {
+    registerUpcommServiceWorker();
+    const cleanupNav = initPushNavigationListener(navigate);
+    return () => {
+      if (cleanupNav) cleanupNav();
+    };
+  }, [navigate]);
 
   return (
     <div className="h-screen w-full max-w-full overflow-hidden bg-[#F7F8FA] dark:bg-[#111315] flex font-sans">
@@ -90,6 +102,7 @@ export function AppLayout() {
           }`}
         >
           <div className={`flex-1 ${isMessagesPage ? 'flex flex-col min-h-0' : 'space-y-6'}`}>
+            <MobileNotificationEnableBanner />
             {!isMessagesPage && <ChangePasswordAlert />}
             <Outlet />
           </div>

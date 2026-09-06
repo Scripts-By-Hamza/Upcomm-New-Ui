@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { INITIAL_USERS } from '../data/dummyUsers';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import {
+  deactivatePushSubscriptionOnLogout,
+  reassociatePushSubscriptionOnLogin,
+} from '../lib/pwa/pushSubscription';
 
 const AuthContext = createContext(null);
 
@@ -160,6 +164,7 @@ export function AuthProvider({ children }) {
             setCachedUser(dbUser);
             localStorage.setItem(STORAGE_KEY, dbUser.id);
             localStorage.setItem(USER_CACHE_KEY, JSON.stringify(dbUser));
+            reassociatePushSubscriptionOnLogin(dbUser.id);
             setLoading(false);
             return { success: true, user: dbUser };
           }
@@ -186,6 +191,7 @@ export function AuthProvider({ children }) {
         setCachedUser(localUser);
         localStorage.setItem(STORAGE_KEY, localUser.id);
         localStorage.setItem(USER_CACHE_KEY, JSON.stringify(localUser));
+        reassociatePushSubscriptionOnLogin(localUser.id);
         setLoading(false);
         return { success: true, user: localUser };
       }
@@ -199,6 +205,10 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    const priorUserId = currentUserId;
+    if (priorUserId) {
+      await deactivatePushSubscriptionOnLogout(priorUserId);
+    }
     try {
       if (isSupabaseConfigured && supabase) {
         await supabase.auth.signOut();
