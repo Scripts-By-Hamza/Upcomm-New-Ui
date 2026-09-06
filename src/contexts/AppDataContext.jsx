@@ -1800,8 +1800,11 @@ export function AppDataProvider({ children }) {
 
   // --- USER CREATION ACTION (SYNCED DIRECTLY TO SUPABASE BACKEND) ---
   const createNewUser = async (userData) => {
+    const defaultCustomId =
+      userData.custom_id?.trim() || userData.full_name?.trim().split(/\s+/)[0] || null;
     const newUser = {
       id: `usr-${Date.now()}`,
+      custom_id: defaultCustomId,
       email: userData.email.trim().toLowerCase(),
       password: userData.password || '123456',
       full_name: userData.full_name.trim(),

@@ -325,8 +325,11 @@ export function AuthProvider({ children }) {
 
   const createUser = async (userData) => {
     const id = `usr-${Date.now()}`;
+    const defaultCustomId =
+      userData.custom_id?.trim() || userData.full_name?.trim().split(/\s+/)[0] || null;
     const newUser = {
       id,
+      custom_id: defaultCustomId,
       email: userData.email.trim().toLowerCase(),
       password: userData.password || '123456',
       full_name: userData.full_name.trim(),

@@ -20,7 +20,8 @@ export function AppLayout() {
   const { createPersonalTask } = useAppData();
   const location = useLocation();
   const navigate = useNavigate();
-  const isMessagesPage = location.pathname === '/messages';
+  const isMessagesPage = location.pathname.startsWith('/messages');
+  const isFullBleedPage = location.pathname.startsWith('/messages') || location.pathname.startsWith('/ai-assistant');
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -77,7 +78,7 @@ export function AppLayout() {
       {/* Right Pane (Header + Content) */}
       <div
         className={`flex-1 flex flex-col min-w-0 h-screen bg-[#F7F8FA] dark:bg-[#111315] ${
-          isMessagesPage ? 'overflow-hidden' : 'overflow-y-auto'
+          isFullBleedPage ? 'overflow-hidden' : 'overflow-y-auto'
         }`}
       >
         {/* Sticky Top Header */}
@@ -96,18 +97,19 @@ export function AppLayout() {
         {/* Page Content Body */}
         <main
           className={`flex-1 w-full max-w-full animate-fade-in flex flex-col ${
-            isMessagesPage
+            isFullBleedPage
               ? 'p-0 sm:px-6 sm:pt-3 sm:pb-3 overflow-hidden min-h-0'
               : 'px-4 sm:px-7 py-5 sm:py-6 overflow-x-hidden'
           }`}
         >
-          <div className={`flex-1 ${isMessagesPage ? 'flex flex-col min-h-0' : 'space-y-6'}`}>
+          <div className={`flex-1 ${isFullBleedPage ? 'flex flex-col min-h-0' : 'space-y-6'}`}>
             <MobileNotificationEnableBanner />
-            {!isMessagesPage && <ChangePasswordAlert />}
+            {!isFullBleedPage && <ChangePasswordAlert />}
             <Outlet />
           </div>
         </main>
       </div>
+
 
       {/* Global Command Palette */}
       <CommandPalette
@@ -172,7 +174,7 @@ export function AppLayout() {
       )}
 
       {/* Mobile Floating Action Button (FAB) with 90° Radial Fan-Out Menu */}
-      {!isMessagesPage && location.pathname !== '/tasks/create' && (
+      {!isFullBleedPage && location.pathname !== '/tasks/create' && (
         <MobileFloatingActionButton
           onOpenCreatePersonalTask={() => setGlobalCreatePersonalTaskOpen(true)}
         />
@@ -180,3 +182,4 @@ export function AppLayout() {
     </div>
   );
 }
+

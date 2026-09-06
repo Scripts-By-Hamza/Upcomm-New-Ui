@@ -35,6 +35,7 @@ export function UserListPage() {
   // Add User Form State
   const [addFullName, setAddFullName] = useState('');
   const [addEmail, setAddEmail] = useState('');
+  const [addCustomId, setAddCustomId] = useState('');
   const [addDesignation, setAddDesignation] = useState('');
   const [addRole, setAddRole] = useState('team_member');
   const [addDepartmentId, setAddDepartmentId] = useState(departments[0]?.id || '');
@@ -42,6 +43,7 @@ export function UserListPage() {
 
   // Edit User Form State
   const [editFullName, setEditFullName] = useState('');
+  const [editCustomId, setEditCustomId] = useState('');
   const [editDesignation, setEditDesignation] = useState('');
   const [editRole, setEditRole] = useState('team_member');
   const [editDepartmentId, setEditDepartmentId] = useState('');
@@ -84,9 +86,11 @@ export function UserListPage() {
     e.preventDefault();
     if (!addFullName.trim() || !addEmail.trim()) return;
 
+    const defaultCustomId = addCustomId.trim() || addFullName.trim().split(/\s+/)[0];
     const newUser = await createNewUser({
       full_name: addFullName,
       email: addEmail,
+      custom_id: defaultCustomId || undefined,
       designation: addDesignation.trim() || 'Team Member Specialist',
       role: addRole,
       department_id: addDepartmentId,
@@ -98,6 +102,7 @@ export function UserListPage() {
 
     setAddFullName('');
     setAddEmail('');
+    setAddCustomId('');
     setAddDesignation('');
     setAddRole('team_member');
 
@@ -110,6 +115,7 @@ export function UserListPage() {
   const handleOpenEditModal = (user) => {
     setEditingUser(user);
     setEditFullName(user.full_name || '');
+    setEditCustomId(user.custom_id || '');
     setEditDesignation(getDesignation(user));
     setEditRole(user.role || 'team_member');
     setEditDepartmentId(user.department_id || departments[0]?.id || '');
@@ -122,6 +128,7 @@ export function UserListPage() {
 
     await updateUser(editingUser.id, {
       full_name: editFullName,
+      custom_id: editCustomId.trim() || null,
       designation: editDesignation,
       role: editRole,
       department_id: editDepartmentId,
@@ -205,7 +212,14 @@ export function UserListPage() {
                       <div className="flex items-center gap-3">
                         <Avatar src={u.avatar_url} name={u.full_name} size="md" showRoleBadge role={u.role} />
                         <div>
-                          <p className="font-semibold text-[14px] leading-[20px] text-slate-900">{u.full_name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-semibold text-[14px] leading-[20px] text-slate-900">{u.full_name}</p>
+                            {u.custom_id && (
+                              <span className="px-1.5 py-0.5 text-[10.5px] font-mono font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] rounded tracking-wide">
+                                {u.custom_id}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[12px] leading-[16px] font-semibold text-slate-500 flex items-center gap-1">
                             <Mail className="w-3 h-3 text-slate-400 flex-shrink-0" />
                             {u.email}
@@ -318,6 +332,23 @@ export function UserListPage() {
               />
               <p className="text-[11px] text-slate-400 font-semibold mt-1">
                 Primary user email address is locked and cannot be edited.
+              </p>
+            </div>
+
+            {/* Custom User ID (Editable) */}
+            <div>
+              <label className="block text-[12px] leading-[16px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Unique User ID (First Name / Identifier)
+              </label>
+              <input
+                type="text"
+                value={editCustomId}
+                onChange={(e) => setEditCustomId(e.target.value)}
+                placeholder="e.g. Ahmed, Hamza, Ahsan"
+                className="w-full px-3.5 py-2 text-[14px] leading-[20px] bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono font-semibold text-slate-900"
+              />
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
+                Unique name/identifier used instead of full email when importing tasks via CSV/Excel.
               </p>
             </div>
 
@@ -450,6 +481,22 @@ export function UserListPage() {
                 placeholder="user@company.com"
                 className="w-full px-3.5 py-2 text-[14px] leading-[20px] bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold"
               />
+            </div>
+
+            <div>
+              <label className="block text-[12px] leading-[16px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Unique User ID (First Name / Identifier)
+              </label>
+              <input
+                type="text"
+                value={addCustomId}
+                onChange={(e) => setAddCustomId(e.target.value)}
+                placeholder="e.g. Ahmed, Hamza, Ahsan (leave blank to auto-use first name)"
+                className="w-full px-3.5 py-2 text-[14px] leading-[20px] bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono font-semibold"
+              />
+              <p className="text-[11px] text-slate-500 font-medium mt-1">
+                Used to assign tasks quickly in CSV task imports without typing full email.
+              </p>
             </div>
 
             <div>

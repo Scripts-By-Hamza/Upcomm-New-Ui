@@ -20,8 +20,8 @@ export const CANONICAL_CSV_HEADERS = [
  */
 export function generateCsvTemplate() {
   const headers = CANONICAL_CSV_HEADERS.join(',');
-  const row1 = '"Redesign homepage","Update mobile and desktop UI","user1@company.com|user2@company.com","user3@company.com","High","In Progress","2026-09-05","2026-09-15","https://example.com/brief.pdf|https://example.com/mockup.png"';
-  const row2 = '"Research suppliers","","user4@company.com","","Medium","Pending","2026-09-06","",""';
+  const row1 = '"Redesign homepage","Update mobile and desktop UI","Ahmed|Ahsan","Hamza","High","In Progress","2026-09-05","2026-09-15","https://example.com/brief.pdf|https://example.com/mockup.png"';
+  const row2 = '"Research suppliers","","Zeeshan","","Medium","Pending","2026-09-06","",""';
   return `${headers}\n${row1}\n${row2}`;
 }
 
@@ -58,15 +58,27 @@ export function normalizeHeaderKey(key = '') {
 const HEADER_KEY_MAP = {
   tasktitle: 'title',
   title: 'title',
+  task: 'title',
+  taskname: 'title',
   description: 'description',
   desc: 'description',
   assignee: 'assignee',
   assignees: 'assignee',
+  assigneeemail: 'assignee',
+  assigneeemails: 'assignee',
   assignedto: 'assignee',
   assignedmembers: 'assignee',
+  email: 'assignee',
+  emails: 'assignee',
+  user: 'assignee',
+  users: 'assignee',
+  member: 'assignee',
+  members: 'assignee',
   assistantusers: 'assistants',
   assistant: 'assistants',
   assistants: 'assistants',
+  assistantemail: 'assistants',
+  assistantemails: 'assistants',
   assistedby: 'assistants',
   priority: 'priority',
   status: 'status',
@@ -191,7 +203,7 @@ export function checkUserAssignmentPermission(targetUser, currentUser, isAssista
 }
 
 /**
- * Resolve a user token (email or full name) against active directory users
+ * Resolve a user token (Custom ID, User ID, Email, or Full Name) against active directory users
  */
 export function resolveUserToken(token, activeUsers = []) {
   if (!token) return { user: null, error: null };
@@ -200,19 +212,31 @@ export function resolveUserToken(token, activeUsers = []) {
 
   const lower = cleaned.toLowerCase();
 
-  // 1. Exact email match (case-insensitive)
-  const emailMatch = activeUsers.find((u) => (u.email || '').trim().toLowerCase() === lower);
-  if (emailMatch) {
-    return { user: emailMatch, error: null };
+  // 1. Priority: Exact Custom User ID / Employee ID match (case-insensitive, e.g. UP-013, HOD-10, 101)
+  const customIdMatch = activeUsers.find(
+    (u) => u.custom_id && String(u.custom_id).trim().toLowerCase() === lower
+  );
+  if (customIdMatch) {
+    return { user: customIdMatch, error: null };
   }
 
-  // 2. Exact user ID match (if ID was deliberately passed)
-  const idMatch = activeUsers.find((u) => u.id === cleaned);
+  // 2. Exact internal user ID match (e.g. usr-1786...)
+  const idMatch = activeUsers.find(
+    (u) => u.id && String(u.id).trim().toLowerCase() === lower
+  );
   if (idMatch) {
     return { user: idMatch, error: null };
   }
 
-  // 3. Exact full-name match fallback
+  // 3. Exact email match (case-insensitive)
+  const emailMatch = activeUsers.find(
+    (u) => (u.email || '').trim().toLowerCase() === lower
+  );
+  if (emailMatch) {
+    return { user: emailMatch, error: null };
+  }
+
+  // 4. Exact full-name match fallback
   const nameMatches = activeUsers.filter(
     (u) => (u.full_name || '').trim().toLowerCase() === lower
   );
@@ -224,13 +248,13 @@ export function resolveUserToken(token, activeUsers = []) {
   if (nameMatches.length > 1) {
     return {
       user: null,
-      error: `Ambiguous user "${cleaned}". Multiple team members share this name. Use their email address instead.`,
+      error: `Ambiguous user "${cleaned}". Multiple team members share this name. Use their Custom ID (e.g. UP-013) or email address instead.`,
     };
   }
 
   return {
     user: null,
-    error: `User "${cleaned}" was not found or is inactive.`,
+    error: `User "${cleaned}" was not found or is inactive. You can use their Custom ID (e.g. UP-013) or work email.`,
   };
 }
 

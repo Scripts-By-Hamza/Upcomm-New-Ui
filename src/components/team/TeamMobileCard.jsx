@@ -57,6 +57,11 @@ export function TeamMobileCard({
               <h4 className="text-[13.5px] font-semibold text-[#18181B] truncate">
                 {user.full_name || 'Unnamed Employee'}
               </h4>
+              {user.custom_id && (
+                <span className="px-1.5 py-0.5 text-[10.5px] font-mono font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] rounded tracking-wide">
+                  {user.custom_id}
+                </span>
+              )}
               {isSelf && (
                 <span className="px-1.5 py-0.2 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded">
                   You

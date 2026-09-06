@@ -480,3 +480,14 @@ export function canViewDepartments(user) {
   const role = (user.role || '').toLowerCase();
   return role === 'admin' || role === 'it_support_admin';
 }
+
+/**
+ * AI Assistant Access Helper (Admin & IT Support Admin only in V1)
+ */
+export function canUseAiAssistant(user) {
+  if (!user) return false;
+  const role = (user.role || '').toLowerCase();
+  const isAdmin = role === 'admin' || role === 'it_support_admin';
+  return isAdmin && user.is_active !== false;
+}
+

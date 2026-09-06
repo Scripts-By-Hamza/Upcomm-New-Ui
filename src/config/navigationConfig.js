@@ -10,13 +10,16 @@ import {
   BarChart3,
   Activity,
   UserCheck,
+  Sparkles,
 } from 'lucide-react';
 import {
   canViewUsers,
   canManagePermissions,
   canViewDepartments,
   canViewReports,
+  canUseAiAssistant,
 } from '../utils/rbac/permissionManager';
+
 
 export const NAVIGATION_ITEMS = [
   // GROUP: MY WORK
@@ -107,6 +110,15 @@ export const NAVIGATION_ITEMS = [
     isAllowed: (user) => canViewReports(user),
   },
   {
+    id: 'nav-ai-assistant',
+    label: 'AI Assistant',
+    to: '/ai-assistant',
+    icon: Sparkles,
+    section: 'Management',
+    keywords: ['ai', 'assistant', 'nemotron', 'chat', 'bot', 'admin ai', 'workspace ai'],
+    isAllowed: (user) => canUseAiAssistant(user),
+  },
+  {
     id: 'nav-activity',
     label: 'Activity',
     to: '/activity',
@@ -115,6 +127,7 @@ export const NAVIGATION_ITEMS = [
     keywords: ['activity', 'logs', 'audit', 'history', 'events'],
     isAllowed: () => true,
   },
+
 
   // GROUP: ACCOUNT
   {

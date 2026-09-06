@@ -11,6 +11,7 @@ import {
   canReviewCompletionRequest,
   canReviewDeleteRequest,
   canUserViewTask,
+  canUseAiAssistant,
 } from '../../utils/rbac/permissionManager';
 import { canViewMonthlyTarget } from '../../utils/monthlyTargets/monthlyTargetPermissions';
 import { canStartDirectMessage } from '../../utils/messages/messagePermissions';
@@ -40,6 +41,7 @@ import {
   Shield,
   Target,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 
 export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse, onNavItemClick, onOpenCommandPalette }) {
@@ -77,6 +79,7 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
   const canSeePermissionsSubnav = canManagePermissions(currentUser);
   const canSeeReports = canViewReports(currentUser);
   const canSeeDepartments = canViewDepartments(currentUser);
+  const canSeeAiAssistant = canUseAiAssistant(currentUser);
 
   // Scoped Tasks for Unread Badges Calculation
   const scopedTasks = useMemo(() => {
@@ -569,6 +572,9 @@ export function Sidebar({ className = '', isCollapsed = false, onToggleCollapse,
 
             {canSeeReports && (
               <NavItem to="/reports" label="Reports" icon={BarChart3} />
+            )}
+            {canSeeAiAssistant && (
+              <NavItem to="/ai-assistant" label="AI Assistant" icon={Sparkles} />
             )}
             <NavItem to="/activity" label="Activity" icon={Activity} />
           </div>

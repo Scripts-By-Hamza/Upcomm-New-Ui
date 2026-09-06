@@ -302,13 +302,13 @@ export function ImportTaskDialog({ isOpen, onClose, onSuccess }) {
 
                     <div>
                       <span className="font-semibold text-[#18181B] dark:text-white block">
-                        2. Multiple Assignees & Assistants
+                        2. Assignees & Assistants (First Name / Unique ID or Email)
                       </span>
                       <p className="text-[#52525B] dark:text-[#D4D4D8] text-[11.5px] mt-0.5">
-                        Enter email addresses separated by a pipe character (<code className="px-1 py-0.5 bg-[#F4F4F5] dark:bg-[#27272A] rounded font-mono font-bold text-[#059669]">|</code>).
+                        Use user's <span className="font-semibold text-[#059669]">Unique ID / First Name</span> (e.g. <code className="px-1 py-0.5 bg-[#ECFDF5] text-[#059669] rounded font-mono font-bold">Ahmed</code>, <code className="px-1 py-0.5 bg-[#ECFDF5] text-[#059669] rounded font-mono font-bold">Ahsan</code>, <code className="px-1 py-0.5 bg-[#ECFDF5] text-[#059669] rounded font-mono font-bold">Hamza</code>) or work email. For multiple users, separate with pipe (<code className="px-1 py-0.5 bg-[#F4F4F5] dark:bg-[#27272A] rounded font-mono font-bold text-[#059669]">|</code>).
                       </p>
                       <div className="mt-1 p-2 bg-[#F9FAFB] dark:bg-[#121214] rounded-[6px] border border-[#E5E7EB] dark:border-[#27272A] font-mono text-[11px] text-[#18181B] dark:text-[#F4F4F5] truncate">
-                        ahmed@upcomm.com|sarah@upcomm.com
+                        Ahmed|Ahsan <span className="text-[#71717A] dark:text-[#A1A1AA]">(or ahmadbinazeem007@gmail.com|ahsanishfaq2019@gmail.com)</span>
                       </div>
                     </div>
 
@@ -347,8 +347,8 @@ export function ImportTaskDialog({ isOpen, onClose, onSuccess }) {
                       </span>
                       <div className="mt-1 p-2 bg-[#18181B] text-slate-200 rounded-[6px] font-mono text-[10.5px] overflow-x-auto whitespace-pre leading-relaxed">
 {`Task title*,Description,Assignee*,Assistant Users,Priority,Status,Start Date*,Due Date,Attachments
-"Redesign homepage","Mobile QA","user1@company.com|user2@company.com","user3@company.com","High","In Progress","2026-09-05","2026-09-15","https://example.com/mock.png"
-"Research suppliers","","user4@company.com","","Medium","Pending","2026-09-06","",""`}
+"Redesign homepage","Mobile QA","Ahmed|Ahsan","Hamza","High","In Progress","2026-09-05","2026-09-15","https://example.com/mock.png"
+"Research suppliers","","Zeeshan","","Medium","Pending","2026-09-06","",""`}
                       </div>
                     </div>
                   </div>

@@ -9,6 +9,7 @@ export function AddUserModal({
 }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [customId, setCustomId] = useState('');
   const [designation, setDesignation] = useState('');
   const [role, setRole] = useState('team_member');
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || '');
@@ -21,6 +22,7 @@ export function AddUserModal({
     if (isOpen) {
       setFullName('');
       setEmail('');
+      setCustomId('');
       setDesignation('');
       setRole('team_member');
       setDepartmentId(departments[0]?.id || '');
@@ -76,9 +78,11 @@ export function AddUserModal({
     setError('');
 
     try {
+      const defaultCustomId = customId.trim() || trimmedName.split(/\s+/)[0];
       await onSubmit({
         full_name: trimmedName,
         email: trimmedEmail,
+        custom_id: defaultCustomId || null,
         designation: designation.trim() || 'Team Member Specialist',
         role,
         department_id: departmentId || null,
@@ -207,6 +211,25 @@ export function AddUserModal({
                 onChange={(e) => setDesignation(e.target.value)}
                 placeholder="e.g. Senior Frontend Developer"
                 className="w-full h-10 px-3 text-[13px] text-[#18181B] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669]/20 rounded-[8px] outline-none transition-colors placeholder:text-[#8B8B95]"
+              />
+            </div>
+
+            {/* Custom User ID (Unique ID for CSV task import & quick assignments) */}
+            <div>
+              <label
+                htmlFor="user-customid-input"
+                className="block text-[12px] font-medium text-[#18181B] mb-1.5"
+              >
+                Unique User ID (First Name / Identifier){' '}
+                <span className="text-[11px] font-normal text-[#71717A]">(e.g. Ahmed, Hamza — used for CSV import)</span>
+              </label>
+              <input
+                id="user-customid-input"
+                type="text"
+                value={customId}
+                onChange={(e) => setCustomId(e.target.value)}
+                placeholder="e.g. Ahmed, Hamza, Ahsan (leave blank to auto-use first name)"
+                className="w-full h-10 px-3 text-[13px] text-[#18181B] bg-white border border-[#E5E7EB] hover:border-[#D4D4D8] focus:border-[#059669] focus:ring-1 focus:ring-[#059669]/20 rounded-[8px] outline-none transition-colors placeholder:text-[#8B8B95] font-mono"
               />
             </div>
 

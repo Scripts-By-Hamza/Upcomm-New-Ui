@@ -25,6 +25,7 @@ import { PersonalTasksPage } from './pages/tasks/PersonalTasksPage';
 import { InboxPage } from './pages/inbox/InboxPage';
 import { MonthlyTargetsPage } from './pages/performance/MonthlyTargetsPage';
 import { MessagesPage } from './pages/messages/MessagesPage';
+import { AIAssistantPage } from './pages/ai/AIAssistantPage';
 
 export default function App() {
   return (
@@ -118,6 +119,15 @@ export default function App() {
                 element={
                   <ProtectedRoute allowedRoles={['admin', 'it_support_admin', 'hod']}>
                     <ReportsPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Admin AI Assistant Route */}
+              <Route
+                path="ai-assistant"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'it_support_admin']}>
+                    <AIAssistantPage />
                   </ProtectedRoute>
                 }
               />
