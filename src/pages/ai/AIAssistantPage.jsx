@@ -10,12 +10,11 @@ import {
   BarChart3,
   ListTodo,
   Clock,
-  Mic,
-  MicOff,
 } from 'lucide-react';
 import { ChatMessage } from '../../components/ai/ChatMessage';
 import { ConversationHistoryDrawer } from '../../components/ai/ConversationHistoryDrawer';
-import { useWebSpeechRecognition } from '../../hooks/useWebSpeechRecognition';
+import { FEATURES } from '../../config/features';
+import { AIComposerVoiceInput } from '../../components/ai/AIComposerVoiceInput';
 import {
   sendAiMessage,
   confirmAiPendingAction,
@@ -65,33 +64,9 @@ export function AIAssistantPage() {
   const [isExecutingAction, setIsExecutingAction] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-  const [speechLanguage, setSpeechLanguage] = useState('en-US');
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
-
-  // Web Speech API Voice Recognition Hook
-  const {
-    isSupported: isSpeechSupported,
-    isListening: isSpeechListening,
-    isRequestingPermission: isSpeechRequestingPermission,
-    interimTranscript: speechInterim,
-    elapsedSeconds: speechElapsed,
-    errorMessage: speechError,
-    startListening: startVoiceInput,
-    stopListening: stopVoiceInput,
-    cancelListening: cancelVoiceInput,
-    appendSpeechTranscript,
-  } = useWebSpeechRecognition({
-    language: speechLanguage,
-    onTranscriptFinalized: (finalText) => {
-      setInputPrompt((prev) => appendSpeechTranscript(prev, finalText));
-      setTimeout(() => textareaRef.current?.focus(), 50);
-    },
-    onError: (err) => {
-      setErrorMessage(err);
-    },
-  });
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,9 +109,6 @@ export function AIAssistantPage() {
 
   // 3. Handle Send Message
   const handleSendMessage = async (textToSend) => {
-    if (isSpeechListening) {
-      stopVoiceInput();
-    }
     const text = (textToSend || inputPrompt).trim();
     if (!text || isLoading) return;
 
@@ -428,51 +400,11 @@ export function AIAssistantPage() {
       {/* Responsive Bottom Composer Surface */}
       <div className="p-2 sm:p-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-white dark:bg-[#18181B] border-t border-[#E5E7EB] dark:border-[#27272A] shrink-0">
         <div className="max-w-4xl mx-auto">
-          {/* Live Voice Input Status Banner */}
-          {isSpeechListening && (
-            <div
-              className="flex items-center justify-between px-3 py-1.5 mb-2 rounded-[8px] bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-[12px] text-red-700 dark:text-red-400 animate-fade-in font-['Inter']"
-              aria-live="polite"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
-                <span className="font-semibold shrink-0">Listening...</span>
-                <span className="text-[11px] font-mono bg-red-100 dark:bg-red-900/60 px-1.5 py-0.2 rounded shrink-0">
-                  {String(Math.floor(speechElapsed / 60)).padStart(2, '0')}:
-                  {String(speechElapsed % 60).padStart(2, '0')}
-                </span>
-                {speechInterim && (
-                  <span className="text-[11.5px] italic text-[#52525B] dark:text-[#D4D4D8] truncate">
-                    "{speechInterim}"
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                <button
-                  type="button"
-                  onClick={cancelVoiceInput}
-                  aria-label="Cancel voice input"
-                  className="px-2 py-0.5 rounded text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={stopVoiceInput}
-                  aria-label="Stop voice input and finalize text"
-                  className="px-2.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          )}
-
           <div className="relative flex items-end rounded-[10px] sm:rounded-[12px] bg-[#F7F8FA] dark:bg-[#202024] border border-[#E5E7EB] dark:border-[#27272A] focus-within:border-[#059669] focus-within:ring-1 focus-within:ring-[#059669] transition-all p-1.5 sm:p-2">
             <textarea
               ref={textareaRef}
               rows={1}
-              placeholder={isSpeechListening ? 'Listening to voice...' : 'Ask UPCOMM AI anything...'}
+              placeholder="Ask UPCOMM AI anything..."
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -482,51 +414,25 @@ export function AIAssistantPage() {
             />
 
             <div className="flex items-center gap-1 shrink-0">
-              {/* Voice Microphone Button */}
-              {isSpeechSupported ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isSpeechListening) {
-                      stopVoiceInput();
-                    } else {
-                      startVoiceInput(speechLanguage);
-                    }
+              {/* Optional Voice Microphone Control (Enabled via FEATURES.AI_VOICE_INPUT) */}
+              {FEATURES.AI_VOICE_INPUT && (
+                <AIComposerVoiceInput
+                  isLoading={isLoading}
+                  onAppendTranscript={(finalText) => {
+                    setInputPrompt((prev) => (prev ? `${prev.trimEnd()} ${finalText}` : finalText));
+                    setTimeout(() => textareaRef.current?.focus(), 50);
                   }}
-                  disabled={isLoading || isSpeechRequestingPermission}
-                  aria-label={isSpeechListening ? 'Stop voice input' : 'Start voice input'}
-                  title={isSpeechListening ? 'Stop listening' : 'Speak your message'}
-                  className={`p-1.5 sm:p-2 rounded-[7px] sm:rounded-[8px] transition-all cursor-pointer shrink-0 ${
-                    isSpeechListening
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-xs animate-pulse'
-                      : 'hover:bg-zinc-200 dark:hover:bg-zinc-700 text-[#71717A] dark:text-[#A1A1AA]'
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                >
-                  {isSpeechListening ? (
-                    <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  ) : (
-                    <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  aria-label="Voice input not supported"
-                  title="Voice input is not supported in this browser"
-                  className="p-1.5 sm:p-2 rounded-[7px] sm:rounded-[8px] opacity-30 cursor-not-allowed text-[#71717A] shrink-0"
-                >
-                  <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </button>
+                  onError={(err) => setErrorMessage(err)}
+                />
               )}
 
               {/* Send Message Button */}
               <button
                 type="button"
                 onClick={() => handleSendMessage()}
-                disabled={!inputPrompt.trim() || isLoading || isSpeechListening}
+                disabled={!inputPrompt.trim() || isLoading}
                 className="p-1.5 sm:p-2 rounded-[7px] sm:rounded-[8px] bg-[#059669] hover:bg-[#047857] text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
-                title={isSpeechListening ? 'Stop speaking before sending' : 'Send message'}
+                title="Send message"
                 aria-label="Send message"
               >
                 <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -539,19 +445,6 @@ export function AIAssistantPage() {
               Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-[10px]">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-[10px]">Shift+Enter</kbd> for new line
             </span>
             <div className="flex items-center gap-2">
-              {isSpeechSupported && (
-                <select
-                  value={speechLanguage}
-                  onChange={(e) => setSpeechLanguage(e.target.value)}
-                  className="bg-transparent text-[11px] text-[#71717A] dark:text-[#A1A1AA] border-none outline-none cursor-pointer hover:text-[#059669] transition-colors"
-                  title="Speech Recognition Language"
-                  aria-label="Speech Recognition Language"
-                >
-                  <option value="en-US">EN (English)</option>
-                  <option value="ur-PK">UR (Urdu)</option>
-                </select>
-              )}
-              <span>•</span>
               <span>UPCOMM AI • Admin Workspace Agent</span>
             </div>
           </div>
@@ -560,3 +453,5 @@ export function AIAssistantPage() {
     </div>
   );
 }
+
+export default AIAssistantPage;
